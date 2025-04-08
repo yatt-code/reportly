@@ -1,16 +1,24 @@
 'use server';
 
 import connectDB from '@/lib/db/connectDB';
-import Report from '@/models/Report';
-import logger from '@/lib/utils/logger'; // Assuming logger exists
+import Report from '@/models/Report'; // Assuming Report model has appropriate types
+import logger from '@/lib/utils/logger';
+
+// Define a more specific return type
+// Consider defining a proper Report type based on your model
+type GetReportsResult =
+    | { success: true; data: any[] }
+    | { success: false; error: string };
 
 /**
  * Server Action to fetch all reports.
- * Optionally supports basic pagination or filtering in the future.
+ * WARNING: In a real application, fetching ALL reports is usually not recommended.
+ * Implement pagination and filtering based on user context (e.g., userId, groupId).
+ * This is kept simple for now as per the initial implementation.
  *
- * @returns {Promise<{success: boolean, data?: object[], error?: string}>} - Result object.
+ * @returns {Promise<GetReportsResult>} - Result object indicating success or failure.
  */
-export async function getReports() {
+export async function getReports(): Promise<GetReportsResult> {
   const functionName = 'getReports';
   logger.log(`[${functionName}] Starting execution.`);
 
@@ -29,12 +37,13 @@ export async function getReports() {
     // Ensure data is serializable (lean() helps, but double-check complex fields if added later)
     return { success: true, data: JSON.parse(JSON.stringify(reports)) };
 
-  } catch (error) {
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
     logger.error(`[${functionName}] Error fetching reports.`, error);
     logger.log(`[${functionName}] Finished execution with error.`);
     return { success: false, error: 'Failed to fetch reports due to a server error.' };
   }
 }
 
-// Exporting default for consistency, though named export is also common for server actions
-export default getReports;
+// Removed default export if not needed
+// export default getReports;
