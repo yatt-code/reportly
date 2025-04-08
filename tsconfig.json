@@ -20,16 +20,16 @@
       }
     ],
     // Path Aliases
-    "baseUrl": ".", // This must be specified if "paths" is specified.
+    "baseUrl": ".", // Keep baseUrl as '.', paths will be relative to it
     "paths": {
-      "@/*": ["./*"] // Map @/* to the root directory
+      "@/*": ["./src/*"] // Map @/* to the src directory
     }
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.js", // Include JS files if allowJs is true
+    "src/**/*.ts", // Include files within src
+    "src/**/*.tsx",
+    "src/**/*.js", // Include JS files if allowJs is true
     ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules"]

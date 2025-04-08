@@ -23,10 +23,21 @@ export function error(message, error) {
   console.error(`[${timestamp}] ERROR: ${message}`, error || '');
 }
 
+/**
+ * Logs a warning message.
+ * @param {string} message - The warning message.
+ * @param {object} [meta] - Optional metadata object.
+ */
+export function warn(message, meta) {
+  const timestamp = new Date().toISOString();
+  console.warn(`[${timestamp}] WARN: ${message}`, meta || '');
+}
+
 // Export as an object for potential future expansion or different log levels
 const logger = {
   log,
   error,
+  warn, // Add warn here
 };
 
 export default logger;
