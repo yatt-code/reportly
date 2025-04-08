@@ -1,7 +1,7 @@
 import React from 'react';
-import Link from 'next/link';
+// Removed Link and Plus imports as they are handled by the button component
 import { Metadata } from 'next';
-import { Plus } from 'lucide-react'; // Icon for New Report button
+import NewReportButton from '@/components/dashboard/NewReportButton'; // Import the client component
 import ActivityStats from '@/components/dashboard/ActivityStats';
 import WeeklyActivityHeatmap from '@/components/dashboard/WeeklyActivityHeatmap';
 import ReportList from '@/components/dashboard/ReportList';
@@ -37,14 +37,8 @@ const DashboardPage = () => {
             {/* Report List */}
             <ReportList />
 
-            {/* Floating Action Button for New Report */}
-            <Link
-                href="/report/new" // Assuming '/report/new' is the route for the editor
-                className="fixed bottom-8 right-8 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 z-20"
-                title="Create New Report"
-            >
-                <Plus size={24} />
-            </Link>
+            {/* Floating Action Button (Client Component) */}
+            <NewReportButton />
         </div>
     );
 };

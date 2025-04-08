@@ -1,6 +1,6 @@
 'use client'; // Needs state for managing displayed reports
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react'; // Added useCallback
 import { MockReport, getMockReports } from '@/lib/mockData'; // Import type and mock data function
 import ReportListItem from './ReportListItem';
 import { Loader2 } from 'lucide-react'; // Icon for loading state
@@ -36,6 +36,22 @@ const ReportList: React.FC = () => {
         }, 500); // Simulate network delay
     };
 
+    // Callback for handling deletion from a list item
+    const handleDeleteReport = useCallback((reportIdToDelete: string) => {
+        setReports(currentReports => currentReports.filter(report => report.id !== reportIdToDelete));
+        // Optionally adjust displayedCount if needed, though usually not necessary on delete
+        // Check if hasMoreReports needs update (e.g., if total count is known)
+    }, []); // Empty dependency array as it only uses setReports
+
+    // Callback for handling duplication from a list item
+    const handleDuplicateReport = useCallback((newReport: MockReport) => {
+        // Add the new report to the top of the list for visibility
+        setReports(currentReports => [newReport, ...currentReports]);
+        // Increment displayed count if it's below the max
+        setDisplayedCount(prevCount => Math.min(prevCount + 1, MAX_REPORTS_TO_SHOW));
+        // Check if hasMoreReports needs update
+    }, []); // Empty dependency array
+
     return (
         <div className="mb-6">
             <h3 className="text-lg font-semibold mb-3">Recent Reports</h3>
@@ -44,7 +60,12 @@ const ReportList: React.FC = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {reports.map((report) => (
-                        <ReportListItem key={report.id} report={report} />
+                        <ReportListItem
+                            key={report.id}
+                            report={report}
+                            onDelete={handleDeleteReport}
+                            onDuplicate={handleDuplicateReport}
+                        />
                     ))}
                 </div>
             )}
