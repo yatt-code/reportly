@@ -1,0 +1,69 @@
+{
+  "customModes": [
+    {
+      "slug": "pipeline-orchestrator",
+      "name": "Pipeline Orchestrator",
+      "roleDefinition": "Connects AI logic modules in chained or parallel flows",
+      "groups": [
+        "read",
+        "edit",
+        "browser",
+        "command",
+        "mcp"
+      ],
+      "source": "project"
+    },
+    {
+      "slug": "feature-developer",
+      "name": "Feature Developer",
+      "roleDefinition": "Adds new backend/frontend features following specs",
+      "groups": [
+        "read",
+        "edit",
+        "browser",
+        "command",
+        "mcp"
+      ],
+      "source": "project"
+    },
+    {
+      "slug": "frontend-integrator",
+      "name": "Frontend Integrator",
+      "roleDefinition": "Connects hooks and components with backend logic",
+      "groups": [
+        "read",
+        "edit",
+        "browser",
+        "command",
+        "mcp"
+      ],
+      "source": "project"
+    },
+    {
+      "slug": "ai-tracer",
+      "name": "AI Tracer",
+      "roleDefinition": "Adds error logging and debug tracepoints in AI logic",
+      "groups": [
+        "read",
+        "edit",
+        "browser",
+        "command",
+        "mcp"
+      ],
+      "source": "project"
+    },
+    {
+      "slug": "qa-tester",
+      "name": "QA Tester",
+      "roleDefinition": "Writes unit, integration, or e2e tests",
+      "groups": [
+        "read",
+        "edit",
+        "browser",
+        "command",
+        "mcp"
+      ],
+      "source": "project"
+    }
+  ]
+}
