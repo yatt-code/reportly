@@ -2,18 +2,36 @@
 
 import { z } from 'zod';
 import connectDB from '@/lib/db/connectDB';
-import CommentModel from '@/models/Comment'; // Use the Mongoose model
+import CommentModel, { IComment } from '@/models/Comment'; // Import interface too
 import ReportModel from '@/models/Report'; // Needed for access check
 import { getCurrentUser } from '@/lib/auth';
 import { PostCommentSchema, PostCommentInput } from '@/lib/schemas/commentSchemas';
-import { ReportDocument } from '@/lib/schemas/reportSchemas'; // Import Report type
+import { ReportDocument } from '@/lib/schemas/reportSchemas';
 import logger from '@/lib/utils/logger';
-import { revalidatePath } from 'next/cache'; // To potentially update report page UI
+import { revalidatePath } from 'next/cache';
+import { getSupabaseServiceRoleClient } from '@/lib/supabaseClient'; // Import SERVICE ROLE client
 
 // Define return type
 type PostCommentResult =
     | { success: true; comment: any } // Consider defining a proper Comment type based on model/interface
     | { success: false; error: string; issues?: z.ZodIssue[] };
+
+// --- Mock User Lookup ---
+// In a real app, query Supabase users table based on username, scoped by group if necessary
+// Replace this with actual Supabase query logic
+const mockResolveUsernamesToIds = async (usernames: string[], groupId?: string): Promise<string[]> => {
+    logger.log('[mockResolveUsernamesToIds] Resolving usernames (mock)...', { usernames, groupId });
+    await new Promise(resolve => setTimeout(resolve, 50)); // Simulate delay
+    const mockDb: { [username: string]: string } = {
+        'alice': 'user_id_alice',
+        'bob': 'user_id_bob',
+        'charlie': 'user_id_charlie',
+        'admin': 'user_id_admin',
+    };
+    // Filter based on mock DB and potentially groupId (not implemented in mock)
+    return usernames.map(uname => mockDb[uname]).filter(Boolean); // Return only found IDs
+};
+// --- End Mock User Lookup ---
 
 /**
  * Server Action to post a new comment or reply to a report.
@@ -89,13 +107,63 @@ export async function postComment(input: PostCommentInput): Promise<PostCommentR
         const newComment = new CommentModel({
             reportId,
             content,
-            parentId: parentId || null, // Ensure null if undefined
-            mentions: mentions || [], // Ensure empty array if undefined
-            userId: currentUserId, // Assign authenticated user ID
+            parentId: parentId || null,
+            // mentions: mentions || [], // We will populate this based on parsing
+            userId: currentUserId,
         });
 
-        const savedComment = await newComment.save();
-        logger.log(`[${functionName}] Comment created successfully.`, { commentId: savedComment._id });
+        // --- Mention Parsing & Resolution ---
+        const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+        // Use Set to avoid duplicate usernames if mentioned multiple times
+        const mentionedUsernames = new Set<string>();
+        let match;
+        while ((match = mentionRegex.exec(content)) !== null) {
+            mentionedUsernames.add(match[1]); // Add the captured username (group 1)
+        }
+
+        let mentionedUserIds: string[] = [];
+        if (mentionedUsernames.size > 0) {
+            logger.log(`[${functionName}] Found potential mentions:`, Array.from(mentionedUsernames));
+            // Resolve usernames to IDs (using mock function for now)
+            // Pass report.groupId for group scoping in real implementation
+            mentionedUserIds = await mockResolveUsernamesToIds(Array.from(mentionedUsernames), report?.groupId);
+            logger.log(`[${functionName}] Resolved mention IDs (mock):`, mentionedUserIds);
+        }
+        newComment.mentions = mentionedUserIds; // Assign resolved IDs
+        // --- End Mention Parsing ---
+
+        const savedComment: IComment = await newComment.save(); // Add type annotation
+        const savedCommentId = (savedComment._id as any).toString(); // Cast _id to any before toString()
+        logger.log(`[${functionName}] Comment created successfully.`, { commentId: savedCommentId, mentions: mentionedUserIds });
+
+        // --- Insert Notifications for Mentions ---
+        if (mentionedUserIds.length > 0) {
+            const supabaseService = getSupabaseServiceRoleClient(); // Use service role client
+            const notificationsToInsert = mentionedUserIds
+                .filter(mentionedUserId => mentionedUserId !== currentUserId) // Don't notify self
+                .map(mentionedUserId => ({
+                    userId: mentionedUserId, // The user being notified
+                    type: 'mention' as const, // Use const assertion for enum type safety
+                    contextId: savedCommentId, // ID of the comment where mention occurred
+                    reportId: reportId, // ID of the report context
+                    // seen defaults to false in DB schema
+                }));
+
+            if (notificationsToInsert.length > 0) {
+                logger.log(`[${functionName}] Inserting ${notificationsToInsert.length} mention notifications...`);
+                const { error: notificationError } = await supabaseService
+                    .from('notifications')
+                    .insert(notificationsToInsert);
+
+                if (notificationError) {
+                    // Log error but don't fail the whole comment posting process
+                    logger.error(`[${functionName}] Failed to insert mention notifications.`, notificationError);
+                } else {
+                    logger.log(`[${functionName}] Mention notifications inserted successfully.`);
+                }
+            }
+        }
+        // --- End Notification Insertion ---
 
         // Revalidate the report page path to show the new comment
         revalidatePath(`/report/${reportId}`);

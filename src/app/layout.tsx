@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css"; // Assuming you have a global CSS file
-import { AuthProvider } from "@/components/auth/AuthProvider"; // Import the provider
-import { Toaster } from "react-hot-toast"; // Import Toaster for notifications
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { NotificationProvider } from "@/contexts/NotificationContext"; // Import NotificationProvider
+import { Toaster } from "react-hot-toast";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,9 +22,12 @@ export default function RootLayout({
       <body className={inter.className}>
         {/* Wrap children with AuthProvider */}
         <AuthProvider>
-          {children}
-          {/* Place Toaster here for app-wide notifications */}
-          <Toaster position="bottom-right" />
+          {/* Wrap children needing notification context */}
+          <NotificationProvider>
+            {children}
+            {/* Place Toaster here for app-wide notifications */}
+            <Toaster position="bottom-right" />
+          </NotificationProvider>
         </AuthProvider>
       </body>
     </html>

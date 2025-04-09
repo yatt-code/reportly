@@ -6,6 +6,7 @@ import type { CommentData } from '@/lib/schemas/commentSchemas'; // Import front
 import logger from '@/lib/utils/logger';
 import toast from 'react-hot-toast';
 import { Loader2, Send } from 'lucide-react';
+import MentionInput from './MentionInput'; // Import the mention input component
 
 interface CommentFormProps {
     reportId: string;
@@ -75,14 +76,14 @@ const CommentForm: React.FC<CommentFormProps> = ({
 
     return (
         <form onSubmit={handleSubmit} className="mt-4 mb-6">
-            <textarea
+            {/* Replace textarea with MentionInput */}
+            <MentionInput
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={setContent} // Pass the setter function directly
                 placeholder={placeholder}
-                rows={parentId ? 2 : 3} // Smaller for replies
-                required
+                rows={parentId ? 2 : 3}
                 disabled={isLoading}
-                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:text-white disabled:opacity-70"
+                className="w-full text-sm dark:bg-gray-700 dark:text-white disabled:opacity-70" // Pass base classes
             />
             <div className="flex justify-end items-center mt-2 gap-2">
                 {parentId && onCancel && (

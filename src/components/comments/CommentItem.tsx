@@ -8,7 +8,8 @@ import { deleteComment } from '@/app/actions/comment/deleteComment';
 import logger from '@/lib/utils/logger';
 import toast from 'react-hot-toast';
 import { UserCircle, MessageSquare, Trash2, CornerDownRight, Loader2 } from 'lucide-react'; // Icons
-import CommentForm from './CommentForm'; // For replying
+import CommentForm from './CommentForm';
+import Mention from './Mention'; // Import the Mention component
 
 interface CommentItemProps {
     comment: CommentData;
@@ -105,7 +106,8 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, depth, onDelete, onR
                     {/* Comment Content */}
                     <div className="mt-1 text-sm text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
                         {/* TODO: Add markdown rendering or sanitization if needed */}
-                        {comment.content}
+                        {/* Render content with mentions */}
+                        {renderContentWithMentions(comment.content)}
                     </div>
 
                     {/* Action Buttons */}
@@ -148,5 +150,38 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, depth, onDelete, onR
         </div>
     );
 };
+
+// Helper function to parse content and render mentions
+const renderContentWithMentions = (content: string): React.ReactNode => {
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+        const username = match[1];
+        const index = match.index;
+
+        // Add text before the mention
+        if (index > lastIndex) {
+            parts.push(content.substring(lastIndex, index));
+        }
+
+        // Add the Mention component
+        // Pass username; linking/hover logic is inside Mention component
+        parts.push(<Mention key={index} username={username} />);
+
+        lastIndex = mentionRegex.lastIndex;
+    }
+
+    // Add any remaining text after the last mention
+    if (lastIndex < content.length) {
+        parts.push(content.substring(lastIndex));
+    }
+
+    // Wrap parts in fragments or spans if needed, return array for React rendering
+    return parts.map((part, i) => <React.Fragment key={i}>{part}</React.Fragment>);
+};
+
 
 export default CommentItem;

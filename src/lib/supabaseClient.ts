@@ -44,3 +44,40 @@ export const getSupabaseClient = (): SupabaseClient => {
 
 // Optionally export the instance directly if preferred, though the getter function is safer
 // export const supabase = getSupabaseClient();
+
+
+// --- Service Role Client (for server-side actions needing elevated privileges) ---
+
+// Ensure the service role key is defined (ONLY ON SERVER)
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let serviceClientInstance: SupabaseClient | null = null;
+
+/**
+ * Returns a singleton instance of the Supabase client initialized with the Service Role Key.
+ * WARNING: Use this client ONLY in trusted server-side environments (Server Actions, API Routes).
+ * It bypasses Row Level Security. Never expose the service key to the client.
+ * Throws an error if Supabase URL or Service Key are missing.
+ */
+export const getSupabaseServiceRoleClient = (): SupabaseClient => {
+     if (!supabaseUrl) {
+        throw new Error('Supabase URL is not defined for service client.');
+    }
+     if (!supabaseServiceKey) {
+        logger.error('[SupabaseClient] SUPABASE_SERVICE_ROLE_KEY is not defined. This key is required for server actions that bypass RLS.');
+        throw new Error('Supabase Service Role Key is not defined.');
+    }
+
+    if (!serviceClientInstance) {
+        logger.log('[SupabaseClient] Initializing new Supabase SERVICE ROLE client instance.');
+        // Note: Ensure you trust the environment where this runs.
+        serviceClientInstance = createClient(supabaseUrl, supabaseServiceKey, {
+             auth: {
+                // Service role client typically doesn't need session persistence/refresh
+                autoRefreshToken: false,
+                persistSession: false
+             }
+        });
+    }
+    return serviceClientInstance;
+};

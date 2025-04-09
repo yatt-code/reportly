@@ -89,3 +89,18 @@ export interface ReportListItemData {
     createdAt: Date;
     sentimentTags: string[];
 }
+
+// Interface representing the structure of a User document from MongoDB
+// Adjust based on your actual Mongoose model definition in models/User.js
+export interface UserDocument {
+    _id: string; // Or ObjectId
+    supabaseUserId?: string;
+    name: string;
+    username: string;
+    email: string;
+    role: 'admin' | 'developer';
+    achievements?: string[];
+    groupId?: string; // Or ObjectId
+    createdAt: Date;
+    updatedAt: Date;
+}
