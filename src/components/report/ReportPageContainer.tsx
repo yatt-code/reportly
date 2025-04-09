@@ -14,7 +14,8 @@ import { useFetchReport } from '@/hooks/useFetchReport';
 import { useAutoSave } from '@/hooks/useAutoSave'; // Import useAutoSave
 import TipTapEditor from '@/components/editor/TipTapEditor'; // The display component
 import { saveReport } from '@/app/report/actions/saveReport';
-import { generateSuggestions, Suggestion } from '@/app/report/actions/generateSuggestions'; // Use the server action
+import { generateSuggestions, Suggestion } from '@/app/report/actions/generateSuggestions';
+import type { ReportDocument } from '@/lib/schemas/reportSchemas'; // Import ReportDocument type
 import logger from '@/lib/utils/logger';
 import AiSuggestionPanel from '@/components/AiSuggestionPanel';
 import { Loader2, AlertTriangle, ChevronLeft, Edit, Save, BrainCircuit, RefreshCw } from 'lucide-react'; // Added RefreshCw
@@ -23,8 +24,9 @@ import { Loader2, AlertTriangle, ChevronLeft, Edit, Save, BrainCircuit, RefreshC
 const lowlight = createLowlight(common);
 
 interface ReportPageContainerProps {
-    reportId: string;
-    initialEditable?: boolean; // Allow initial mode override
+    reportId: string; // Keep reportId for context in actions
+    initialEditable?: boolean;
+    initialData: ReportDocument | null; // Accept pre-fetched report data (can be null if not found initially)
 }
 
 /**
@@ -32,26 +34,27 @@ interface ReportPageContainerProps {
  * Handles data fetching, edit mode toggling, saving, and AI suggestion display.
  */
 const ReportPageContainer: React.FC<ReportPageContainerProps> = ({
-    reportId,
+    reportId, // Keep reportId
     initialEditable = false,
+    initialData, // Receive initial data
 }) => {
+    // Use initialData directly instead of fetching
+    // Use initialData directly, renaming to avoid conflict if needed, or just use initialData
+    // const report = initialData; // Remove this redeclaration
     const router = useRouter();
     const [isEditable, setIsEditable] = useState(initialEditable);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     // editorContent state might not be needed if we always get content from editor instance
     // const [editorContent, setEditorContent] = useState<string>('');
-    const [aiSuggestions, setAiSuggestions] = useState<Suggestion[]>([]); // Renamed state
-    const [visibleSuggestionIds, setVisibleSuggestionIds] = useState<Set<string>>(new Set()); // Track dismissed
+    const [aiSuggestions, setAiSuggestions] = useState<Suggestion[]>([]);
+    const [visibleSuggestionIds, setVisibleSuggestionIds] = useState<Set<string>>(new Set());
     const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
-    const [showSuggestionsPanel, setShowSuggestionsPanel] = useState(false); // Renamed state
+    const [showSuggestionsPanel, setShowSuggestionsPanel] = useState(false);
     const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Fetch the report data
-    const { report, isLoading: isReportLoading, error: fetchError, refetch } = useFetchReport(reportId);
-
-    // Removed initial suggestion fetch based on report load, now triggered by editor updates
+    // Removed useFetchReport hook call and related state (isLoading, fetchError, refetch)
 
     // --- Editor Setup ---
     const editor = useEditor({
@@ -62,8 +65,8 @@ const ReportPageContainer: React.FC<ReportPageContainerProps> = ({
             Image.configure({ inline: false, allowBase64: true }),
             MermaidExtension,
         ],
-        content: report?.content || '', // Use fetched report content or empty string
-        editable: isEditable, // Controlled by state
+        content: initialData?.content || '', // Use optional chaining
+        editable: isEditable,
         editorProps: {
             attributes: {
                 class: `prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-2xl m-5 focus:outline-none min-h-[200px]`, // Added min-height
@@ -74,32 +77,34 @@ const ReportPageContainer: React.FC<ReportPageContainerProps> = ({
 
     // Handler for saving the report content (now receives content from autosave/manual trigger)
     const handleEditorSave = useCallback(async (content: string) => {
-        if (!report || !editor) { // Check for editor instance too
-            logger.error('[ReportPageContainer] Attempted to save without report data or editor instance.');
+        // Use initialData for IDs, title etc. Check editor instance.
+        if (!initialData || !editor) {
+            logger.error('[ReportPageContainer] Attempted to save without initial data or editor instance.');
             setSaveError('Cannot save: Report data or editor not ready.');
-            return; // Return void
+            return;
         }
         setIsSaving(true);
         setSaveError(null);
-        logger.log('[ReportPageContainer] Calling saveReport server action...', { reportId: report._id });
+        logger.log('[ReportPageContainer] Calling saveReport server action...', { reportId: initialData?._id }); // Use optional chaining
 
         try {
             // Construct payload for saveReport action
             // Ensure userId and groupId are available from the fetched 'report' object
+            // Use initialData for non-content fields
             const result = await saveReport({
-                reportId: report._id,
-                title: report.title, // Assuming title isn't editable in the TipTapEditor itself for now
+                reportId: initialData._id, // Use optional chaining
+                title: initialData.title,
                 content: content,
-                userId: report.userId, // Make sure these fields exist on your fetched report data
-                groupId: report.groupId,
+                // userId/groupId handled server-side
             });
 
             if (result.success) {
-                logger.log('[ReportPageContainer] Report saved successfully.', { reportId: report._id });
+                logger.log('[ReportPageContainer] Report saved successfully.', { reportId: initialData?._id }); // Use optional chaining
                 // No need to setEditorContent state if we read directly from editor
                 setIsEditable(false); // Exit edit mode after successful save
                 // Optionally show a success message/toast
-                refetch(); // Refetch report data to show potentially updated AI fields (summary/tags)
+                // TODO: Consider revalidating the page path if updated AI fields need to be shown immediately
+                // import { revalidatePath } from 'next/cache'; // Would need to be called from server action or route handler
             } else {
                 logger.error('[ReportPageContainer] Failed to save report via server action.', { error: result.error });
                 setSaveError(result.error || 'An unknown error occurred while saving.');
@@ -111,7 +116,7 @@ const ReportPageContainer: React.FC<ReportPageContainerProps> = ({
         } finally {
             setIsSaving(false);
         }
-    }, [report, refetch, editor]); // Add editor dependency
+    }, [initialData, editor]); // Depend on initialData and editor
 
     // --- AutoSave Hook Setup ---
     const { triggerSave, saveImmediately } = useAutoSave(
@@ -222,18 +227,9 @@ const ReportPageContainer: React.FC<ReportPageContainerProps> = ({
         }
     }, [editor, isEditable]);
 
-     // Effect to update editor content if the report data changes (e.g., after refetch)
-     // This prevents stale content if the report is updated externally or via refetch
-     useEffect(() => {
-        if (editor && report && editor.getHTML() !== report.content) {
-            // Use `setContent` carefully, only when necessary to avoid losing user's current typing state
-            // Check if the editor is focused might help
-            // if (!editor.isFocused) {
-                editor.commands.setContent(report.content, false); // false = don't emit update event
-                logger.log('[ReportPageContainer] Editor content updated from fetched report data.');
-            // }
-        }
-     }, [report, editor]); // Run when report or editor instance changes
+     // Removed effect to update editor content from 'report' state,
+     // as content is now initialized via useEditor's `content` prop using `initialData`.
+     // If server-side props change, Next.js should handle re-rendering.
 
 
     // --- Suggestion Panel Handlers ---
@@ -260,41 +256,14 @@ const ReportPageContainer: React.FC<ReportPageContainerProps> = ({
     }, [editor, triggerSuggestionFetch]);
     // --- UI Rendering ---
 
-    if (isReportLoading) {
-        return (
-            <div className="flex justify-center items-center h-screen">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-                <span className="ml-2 text-gray-500">Loading Report...</span>
-            </div>
-        );
+    // Loading/Error/Not Found states are handled by the parent page component.
+    // If we reach here, initialData should be valid.
+    if (!initialData) {
+         // Fallback just in case, though parent should prevent this
+         logger.error("[ReportPageContainer] Rendered without initialData.");
+         return <div className="p-4 text-red-500">Error: Report data is missing.</div>;
     }
-
-    if (fetchError) {
-        return (
-            <div className="flex flex-col justify-center items-center h-screen text-red-600">
-                <AlertTriangle className="h-12 w-12 mb-4" />
-                <h2 className="text-xl font-semibold mb-2">Error Loading Report</h2>
-                <p className="mb-4">{fetchError.message}</p>
-                <Link href="/dashboard" className="text-blue-600 hover:underline">
-                    Go back to Dashboard
-                </Link>
-            </div>
-        );
-    }
-
-    if (!report) {
-        // This state could occur if fetch completes but finds no report (e.g., 404)
-         return (
-            <div className="flex flex-col justify-center items-center h-screen text-gray-600">
-                <AlertTriangle className="h-12 w-12 mb-4" />
-                <h2 className="text-xl font-semibold mb-2">Report Not Found</h2>
-                <p className="mb-4">The requested report could not be found.</p>
-                <Link href="/dashboard" className="text-blue-600 hover:underline">
-                    Go back to Dashboard
-                </Link>
-            </div>
-        );
-    }
+    // Use initialData directly in JSX where 'report' was used
 
     return (
         <div className="container mx-auto px-4 py-8 flex gap-4">
@@ -304,12 +273,12 @@ const ReportPageContainer: React.FC<ReportPageContainerProps> = ({
                 <div className="mb-4 text-sm text-gray-500">
                     <Link href="/dashboard" className="hover:underline">Dashboard</Link>
                     <span className="mx-2">&gt;</span>
-                    <span>Report: {report.title}</span>
+                    <span>Report: {initialData.title}</span>
                 </div>
 
                 {/* Header with Title and Actions */}
                 <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-bold">{report.title}</h1>
+                    <h1 className="text-2xl font-bold">{initialData.title}</h1>
                     <div className="flex items-center gap-2">
                         {/* Toggle AI Suggestions Button - Show if suggestions exist OR if loading/error */}
                         {(aiSuggestions.length > 0 || isSuggestionsLoading || suggestionsError) && (

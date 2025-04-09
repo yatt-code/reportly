@@ -5,7 +5,10 @@ import { revalidatePath } from 'next/cache';
 import connectDB from '@/lib/db/connectDB';
 import Report from '@/models/Report';
 import logger from '@/lib/utils/logger';
-import { ReportIdSchema } from '@/lib/schemas/reportSchemas'; // Import Zod schema
+import { getCurrentUser } from '@/lib/auth'; // Import server-side user fetcher
+import { ReportIdSchema } from '@/lib/schemas/reportSchemas';
+// Removed assertOwnership import
+import { enforceRole } from '@/lib/rbac/utils'; // Import enforceRole utility
 
 // Define a more specific return type
 type DeleteReportResult =
@@ -39,18 +42,40 @@ export async function deleteReport(reportId: string): Promise<DeleteReportResult
     await connectDB();
     logger.log(`[${functionName}] Database connected.`);
 
-    logger.log(`[${functionName}] Attempting to delete report (ID: ${validatedReportId})...`);
-    const deletedReport = await Report.findByIdAndDelete(validatedReportId);
+    // --- Authentication & Authorization Check ---
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        logger.error(`[${functionName}] Unauthorized: No user session found.`);
+        return { success: false, error: 'Authentication required.' };
+    }
+    const currentUserId = currentUser.id;
+// Enforce that only admins can perform this delete action
+enforceRole('admin', currentUser, 'delete report');
+// If enforceRole doesn't throw, the user is an admin.
 
-    if (!deletedReport) {
-      // If the report was already deleted, arguably this isn't an error from the user's perspective.
-      // However, logging it as a warning or error internally might be useful.
-      logger.warn(`[${functionName}] Report deletion attempt failed: Report not found (ID: ${validatedReportId}). Might have been already deleted.`);
-      // Returning success: false might be confusing if the goal (report is gone) is achieved.
-      // Let's return success: true but maybe indicate it wasn't found. Or stick to error for simplicity.
-      return { success: false, error: 'Report not found for deletion.' };
+// We still need to check if the report exists before attempting deletion
+logger.log(`[${functionName}] Finding report before deletion (ID: ${validatedReportId})...`);
+const reportExists = await Report.exists({ _id: validatedReportId });
+
+if (!reportExists) {
+    logger.warn(`[${functionName}] Report not found for deletion (ID: ${validatedReportId}).`);
+    return { success: false, error: 'Report not found.' };
+}
+logger.log(`[${functionName}] Admin role verified. Proceeding with deletion...`);
+// --- End Auth/Role Check ---
+    // --- End Auth Check ---
+
+    // Now perform the deletion
+    const deleteResult = await Report.deleteOne({ _id: validatedReportId }); // Use deleteOne for better result info
+
+    // Check if deletion was successful (deletedCount should be 1)
+    if (deleteResult.deletedCount === 0) {
+         // This case should ideally not be reached if findById found it, but good for safety
+         logger.error(`[${functionName}] Deletion failed after ownership check (ID: ${validatedReportId}). Report might have been deleted between checks.`);
+         return { success: false, error: 'Deletion failed unexpectedly.' };
     }
 
+    // Deletion successful
     logger.log(`[${functionName}] Report deleted successfully (ID: ${validatedReportId}).`);
 
     // Revalidate relevant paths where the report might have been listed
@@ -69,7 +94,10 @@ export async function deleteReport(reportId: string): Promise<DeleteReportResult
     const error = err instanceof Error ? err : new Error(String(err));
     logger.error(`[${functionName}] Error deleting report (ID: ${validatedReportId}).`, error);
     logger.log(`[${functionName}] Finished execution with error.`);
-    // CastError less likely with Zod, but keep as fallback
+    // Handle specific errors like role failure from enforceRole
+    if (error.message.startsWith('Forbidden:') || error.message.startsWith('Authentication required.')) {
+        return { success: false, error: error.message };
+    }
     if (error.name === 'CastError') {
         return { success: false, error: 'Invalid Report ID format during database operation.' };
     }

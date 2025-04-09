@@ -1,6 +1,10 @@
 import React from 'react';
-import ReportPageContainer from '@/components/report/ReportPageContainer';
 import { Metadata } from 'next';
+import { notFound, redirect } from 'next/navigation'; // Import helpers
+import ReportPageContainer from '@/components/report/ReportPageContainer';
+import { getReportById } from '@/app/report/actions/getReportById'; // Import server action
+import logger from '@/lib/utils/logger'; // Optional logging
+import NotAuthorized from '@/components/NotAuthorized'; // Import the component
 
 // Define props for the page component, including route parameters
 interface ReportPageProps {
@@ -16,9 +20,16 @@ interface ReportPageProps {
 // Optional: Generate dynamic metadata based on the report ID (could fetch title server-side)
 export async function generateMetadata({ params }: ReportPageProps): Promise<Metadata> {
   const reportId = params.id;
-  // In a real app, you might fetch the report title here server-side
-  // const reportTitle = await fetchReportTitle(reportId); // Example function
-  const reportTitle = `Report ${reportId.substring(0, 8)}...`; // Placeholder title
+  // Fetch report server-side to get title for metadata
+  // Note: This duplicates the fetch in the page component, consider optimizing later if needed
+  let reportTitle = `Report ${reportId.substring(0, 8)}...`; // Default/fallback
+  try {
+    const result = await getReportById(reportId);
+    if (result.success && result.data) {
+        reportTitle = result.data.title;
+    }
+    // Ignore errors here, just use default title if fetch fails
+  } catch (e) { /* Ignore */ }
 
   return {
     title: `View Report - ${reportTitle}`,
@@ -30,17 +41,59 @@ export async function generateMetadata({ params }: ReportPageProps): Promise<Met
  * The page component for viewing/editing a single report.
  * It receives the report ID from the URL parameters.
  */
-const ReportPage: React.FC<ReportPageProps> = ({ params, searchParams }) => {
+// Make the page component async to fetch data
+const ReportPage: React.FC<ReportPageProps> = async ({ params, searchParams }) => {
     const reportId = params.id;
-    // Determine initial edit mode based on query parameter (e.g., ?edit=true)
     const initialEditable = searchParams.edit === 'true';
+
+    // --- Fetch Report Server-Side with Ownership Check ---
+    const result = await getReportById(reportId);
+
+    // Handle Forbidden access
+    if (!result.success && result.forbidden) {
+        logger.warn(`[ReportPage] Forbidden access attempt for report ${reportId}. Redirecting.`);
+        // Option 1: Redirect to dashboard (or login if middleware didn't catch it)
+        // redirect('/dashboard'); // Keep redirect for now, or switch to component below
+        return <NotAuthorized />; // Render the NotAuthorized component
+    }
+
+    // Handle Report Not Found
+    if (!result.success && !result.forbidden) {
+         // Log the specific error if needed
+         logger.error(`[ReportPage] Error fetching report ${reportId}: ${result.error}`);
+         // Use Next.js notFound() helper to render the nearest not-found page
+         notFound();
+    }
+
+    // If successful but data is null (shouldn't happen with current getReportById logic, but good practice)
+    if (result.success && !result.data) {
+         logger.warn(`[ReportPage] Report ${reportId} not found after successful fetch.`);
+         notFound();
+    }
+
+    // We have the report data and user is authorized
+    // Explicitly check success again to help TypeScript narrow the type
+    if (!result.success) {
+        // This should technically be unreachable due to previous checks, but satisfies TS
+        logger.error(`[ReportPage] Unexpected state: fetch succeeded but success flag is false.`);
+        notFound();
+    }
+    const reportData = result.data; // Now TS knows result.success is true
+
+    // --- Refactor ReportPageContainer ---
+    // ReportPageContainer now needs to accept the initial report data as a prop
+    // instead of fetching it internally via useFetchReport hook.
+    // We'll need to modify ReportPageContainer next.
+    // For now, we pass the ID and let the container fetch (will cause double fetch).
 
     return (
         <div>
-            {/* Render the container, passing the report ID and initial edit state */}
+            {/* Pass reportId and initialEditable state */}
+            {/* Pass fetched data to the container */}
             <ReportPageContainer
                 reportId={reportId}
                 initialEditable={initialEditable}
+                initialData={reportData}
             />
         </div>
     );
@@ -49,9 +102,5 @@ const ReportPage: React.FC<ReportPageProps> = ({ params, searchParams }) => {
 export default ReportPage;
 
 // Note on Data Fetching:
-// This setup uses a client-side hook (`useFetchReport`) within ReportPageContainer.
-// For improved performance (SSR/SSG), you could fetch the initial report data directly
-// within this server component (`ReportPage`) and pass it down as a prop to
-// ReportPageContainer, potentially eliminating the need for the initial client-side fetch.
-// However, the client-side hook approach is simpler for handling loading/error states
-// and refetching after saves within the client component itself. Choose based on project needs.
+// Note: Data is now fetched server-side in this Page component.
+// ReportPageContainer needs refactoring to accept initialData prop and remove internal useFetchReport hook.

@@ -4,48 +4,48 @@ import { z } from 'zod';
 import connectDB from '@/lib/db/connectDB';
 import Report from '@/models/Report'; // Assuming Report model has appropriate types
 import logger from '@/lib/utils/logger';
-import { UserIdSchema } from '@/lib/schemas/reportSchemas'; // Import Zod schema
+import { getCurrentUser } from '@/lib/auth'; // Import server-side user fetcher
+// Remove UserIdSchema import as we get ID from session
+// import { UserIdSchema } from '@/lib/schemas/reportSchemas';
 
 // Define a more specific return type
 // Consider defining a proper Report type based on your model
 type GetReportsByUserResult =
     | { success: true; data: any[] }
-    | { success: false; error: string; issues?: z.ZodIssue[] };
+    | { success: false; error: string }; // Removed issues as input validation is removed
 
 /**
- * Server Action to fetch all reports for a specific user.
+ * Server Action to fetch all reports for the currently authenticated user.
  * Optionally supports pagination or further filtering in the future.
  *
- * @param userId - The ID of the user whose reports are to be fetched.
  * @returns {Promise<GetReportsByUserResult>} - Result object indicating success or failure.
  */
-export async function getReportsByUser(userId: string): Promise<GetReportsByUserResult> {
+export async function getReportsByUser(): Promise<GetReportsByUserResult> {
     const functionName = 'getReportsByUser';
-    logger.log(`[${functionName}] Starting execution.`, { userId });
+    logger.log(`[${functionName}] Starting execution.`);
 
-    // --- Input Validation ---
-    const validationResult = UserIdSchema.safeParse({ userId });
-    if (!validationResult.success) {
-        logger.error(`[${functionName}] Invalid userId format.`, {
-            userId,
-            issues: validationResult.error.issues,
-        });
-        return { success: false, error: 'Invalid User ID format.', issues: validationResult.error.issues };
+    // --- Authentication Check ---
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        logger.error(`[${functionName}] Unauthorized: No user session found.`);
+        return { success: false, error: 'Authentication required.' };
     }
-    const validatedUserId = validationResult.data.userId; // Use validated ID
+    const currentUserId = currentUser.id;
+    logger.log(`[${functionName}] User authenticated.`, { userId: currentUserId });
+    // --- End Auth Check ---
 
     try {
         logger.log(`[${functionName}] Connecting to database...`);
         await connectDB();
         logger.log(`[${functionName}] Database connected.`);
 
-        logger.log(`[${functionName}] Fetching reports for user (ID: ${validatedUserId})...`);
-        // Fetch reports filtered by userId, sorted by creation date descending
-        const reports = await Report.find({ userId: validatedUserId })
+        logger.log(`[${functionName}] Fetching reports for user (ID: ${currentUserId})...`);
+        // Fetch reports filtered by the authenticated userId
+        const reports = await Report.find({ userId: currentUserId })
             .sort({ createdAt: -1 })
-            .lean(); // Use lean for performance
+            .lean();
 
-        logger.log(`[${functionName}] Found ${reports.length} reports for user (ID: ${validatedUserId}).`);
+        logger.log(`[${functionName}] Found ${reports.length} reports for user (ID: ${currentUserId}).`);
 
         logger.log(`[${functionName}] Finished execution successfully.`);
         // Ensure data is serializable
@@ -53,16 +53,14 @@ export async function getReportsByUser(userId: string): Promise<GetReportsByUser
 
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
-        logger.error(`[${functionName}] Error fetching reports for user (ID: ${validatedUserId}).`, error);
+        logger.error(`[${functionName}] Error fetching reports for user (ID: ${currentUserId}).`, error);
         logger.log(`[${functionName}] Finished execution with error.`);
-        // CastError less likely with Zod, but check just in case
+        // CastError check might still be relevant if DB interaction fails unexpectedly
         if (error.name === 'CastError') {
-             return { success: false, error: 'Invalid User ID format during database operation.' };
+             return { success: false, error: 'Database interaction failed with invalid ID format.' };
         }
         return { success: false, error: 'Failed to fetch user reports due to a server error.' };
     }
 }
 
-// Note: In a real application, the userId should ideally come from the authenticated session
-// on the server-side, not passed directly from the client, to prevent users from fetching
-// other users' reports. This implementation assumes the caller handles authorization.
+// Note: This action now correctly uses the authenticated user ID from the session.

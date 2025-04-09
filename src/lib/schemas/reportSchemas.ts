@@ -80,3 +80,12 @@ export interface ReportDocument {
     };
     // Add any other fields from your Mongoose schema
 }
+
+// Type for data specifically needed by the ReportListItem component
+export interface ReportListItemData {
+    id: string; // Use a consistent 'id' field
+    title: string;
+    status: 'Draft' | 'Complete'; // Assuming status exists or can be derived
+    createdAt: Date;
+    sentimentTags: string[];
+}

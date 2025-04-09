@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { MockReport } from '@/lib/mockData'; // Import the type
-import { FileText, Tag, Trash2, Copy, Pin, PinOff, Share2, MoreVertical, Loader2 } from 'lucide-react'; // Added icons
+// Import the specific type needed for this component
+import type { ReportListItemData } from '@/lib/schemas/reportSchemas';
+import { FileText, Tag, Trash2, Copy, Pin, PinOff, Share2, MoreVertical, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast'; // For notifications
 // Import server actions (adjust paths if needed)
 import { deleteReport } from '@/app/report/actions/deleteReport';
@@ -11,12 +12,14 @@ import { duplicateReport } from '@/app/report/actions/duplicateReport';
 // Assume a Pin/Share action exists or will be created
 // import { togglePinReport } from '@/app/report/actions/togglePinReport';
 // import { generateShareLink } from '@/app/report/actions/generateShareLink';
-import logger from '@/lib/utils/logger'; // For logging
+import logger from '@/lib/utils/logger';
+import { useUser } from '@/lib/useUser'; // Import useUser to get current user ID
+import { useHasRole } from '@/lib/rbac/hooks'; // Import role checking hook
 
 interface ReportListItemProps {
-    report: MockReport;
-    onDelete: (reportId: string) => void; // Callback to update parent state on delete
-    onDuplicate: (newReport: MockReport) => void; // Callback to update parent state on duplicate
+    report: ReportListItemData; // Use the specific data type
+    onDelete: (reportId: string) => void;
+    onDuplicate: (newReport: ReportListItemData) => void; // Callback now expects the list item type
     // Add callbacks for pin/share if implementing state updates
 }
 
@@ -24,6 +27,8 @@ interface ReportListItemProps {
  * Displays a single report item in the list or grid view.
  */
 const ReportListItem: React.FC<ReportListItemProps> = ({ report, onDelete, onDuplicate }) => {
+    const { user } = useUser(); // Get current user
+    const isAdmin = useHasRole('admin'); // Check if user is admin
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDuplicating, setIsDuplicating] = useState(false);
     const [isPinned, setIsPinned] = useState(false); // Mock pinned state
@@ -74,21 +79,21 @@ const ReportListItem: React.FC<ReportListItemProps> = ({ report, onDelete, onDup
         const toastId = toast.loading('Duplicating report...');
 
         try {
-            // Assume current user ID is available (replace 'currentUser123' with actual logic)
-            const currentUserId = 'currentUser123';
-            const result = await duplicateReport(report.id, currentUserId);
+            // The server action now gets the user ID from the session
+            const result = await duplicateReport(report.id);
             if (result.success && result.newReport) {
                 toast.success('Report duplicated successfully!', { id: toastId });
                 logger.log('[ReportListItem] Report duplicated successfully.', { oldId: report.id, newId: result.newReport._id });
-                // Convert the plain JS object back to MockReport structure if needed, or adjust types
-                const newMockReport: MockReport = {
-                    id: result.newReport._id,
+                // Map the duplicated report (which might be a full ReportDocument)
+                // to the ReportListItemData structure needed by the parent list
+                const newListItemData: ReportListItemData = {
+                    id: result.newReport._id, // Use consistent 'id'
                     title: result.newReport.title,
-                    status: 'Draft', // Duplicates are likely drafts initially
+                    status: 'Draft', // Assume draft status
                     createdAt: new Date(result.newReport.createdAt),
-                    sentimentTags: [], // Reset tags for duplicate
+                    sentimentTags: [], // Assume no tags initially
                 };
-                onDuplicate(newMockReport); // Notify parent to add to list
+                onDuplicate(newListItemData); // Notify parent with the correct type
             } else if (!result.success) { // Check if the operation failed before accessing error
                 throw new Error(result.error || 'Failed to duplicate report.');
             } else {
@@ -180,15 +185,20 @@ const ReportListItem: React.FC<ReportListItemProps> = ({ report, onDelete, onDup
                  >
                     {isDuplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
                  </button>
-                 {/* Delete Button */}
-                 <button
-                    onClick={() => setShowConfirmDelete(true)}
-                    disabled={isDeleting}
-                    className="p-1 rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-50"
-                    title="Delete Report"
-                 >
-                    {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                 </button>
+                 {/* Delete Button - Show if user owns the report OR if user is admin */}
+                 {/* We need the report owner's ID here. Assuming ReportListItemData includes it or we fetch it */}
+                 {/* For now, let's assume only admins can delete via dashboard for simplicity, or add owner check */}
+                 {/* Example check if report object had ownerId: (user?.id === report.ownerId || isAdmin) */}
+                 {isAdmin && ( // Simplified: Only show delete to admin for now
+                     <button
+                        onClick={() => setShowConfirmDelete(true)}
+                        disabled={isDeleting}
+                        className="p-1 rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-50"
+                        title="Delete Report (Admin)"
+                     >
+                        {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                     </button>
+                 )}
                  {/* TODO: Consider using a Dropdown Menu (e.g., from Shadcn/ui) for more actions */}
                  {/* <button className="p-1 rounded text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"><MoreVertical size={14} /></button> */}
             </div>

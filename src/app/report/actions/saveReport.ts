@@ -9,7 +9,9 @@ import Report from '@/models/Report'; // Assuming Report model has appropriate t
 import { generateSummary } from '@/lib/ai/passive/generateSummary';
 import { categorizeReport } from '@/lib/ai/passive/categorizeReport';
 import logger from '@/lib/utils/logger';
-import { CreateReportSchema, UpdateReportSchema } from '@/lib/schemas/reportSchemas'; // Import Zod schemas
+import { getCurrentUser } from '@/lib/auth';
+import { CreateReportSchema, UpdateReportSchema, ReportDocument } from '@/lib/schemas/reportSchemas';
+import { assertOwnership } from '@/lib/utils/assertOwnership'; // Import the utility
 
 // Define a combined input type for the function parameter
 // This accepts either a creation payload (without reportId) or an update payload (with reportId)
@@ -54,12 +56,36 @@ export async function saveReport(reportData: SaveReportInput): Promise<SaveRepor
   // Use validated data from now on
   const validatedData = validationResult.data;
   // Destructure needed fields AFTER validation
-  const { title, content, userId, groupId } = validatedData as any; // Cast needed as Zod types differ slightly
+  // Don't destructure userId/groupId from client input for security
+  const { title, content } = validatedData as any;
 
   try {
     logger.log('Connecting to database...');
     await connectDB();
     logger.log('Database connected.');
+
+    // --- Authentication & Authorization Check ---
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        logger.error('[saveReport] Unauthorized: No user session found.');
+        return { success: false, error: 'Authentication required.' };
+    }
+    const currentUserId = currentUser.id;
+    logger.log('[saveReport] User authenticated.', { userId: currentUserId });
+
+    let existingReport: ReportDocument | null = null;
+    if (operation === 'update' && reportId) {
+        existingReport = await Report.findById(reportId).lean() as ReportDocument | null;
+        if (!existingReport) {
+             logger.error(`[saveReport] Update failed: Report not found (ID: ${reportId}).`);
+             return { success: false, error: 'Report not found.' };
+        }
+        // Use the assertOwnership utility
+        assertOwnership(existingReport, currentUserId, 'update');
+        // If assertOwnership doesn't throw, we can proceed
+         logger.log('[saveReport] Ownership verified for update.', { reportId, userId: currentUserId });
+    }
+    // --- End Auth Check ---
 
     // Optional: Add validation to ensure userId and groupId exist and user belongs to group
     // const user = await User.findById(userId);
@@ -147,9 +173,14 @@ export async function saveReport(reportData: SaveReportInput): Promise<SaveRepor
     if (operation === 'update' && reportId) {
         // Update: Only include fields present in validatedData (title, content) + AI fields
         // Exclude userId and groupId from $set payload for updates via this action
+        // Ensure payload doesn't accidentally include userId/groupId for update
+        const updatePayload = { ...reportPayload };
+        delete updatePayload.userId;
+        delete updatePayload.groupId;
+
         savedReport = await Report.findByIdAndUpdate(
-            reportId,
-            { $set: reportPayload },
+            reportId, // reportId is validated
+            { $set: updatePayload },
             { new: true, runValidators: true }
         );
         if (!savedReport) {
@@ -159,12 +190,16 @@ export async function saveReport(reportData: SaveReportInput): Promise<SaveRepor
         logger.log(`Report updated successfully (ID: ${savedReport._id}).`);
     } else if (operation === 'create') {
         // Create: Include userId and groupId from validatedData
-        // Ensure these fields exist on the validatedData for create operations
-        if (!('userId' in validatedData) || !('groupId' in validatedData)) {
-             logger.error('[saveReport] Missing userId or groupId for create operation after validation.');
-             return { success: false, error: 'Internal server error: Missing required user/group info for creation.' };
+        // Assign ownership using the authenticated user ID
+        reportPayload.userId = currentUserId;
+        // Assign groupId - IMPORTANT: How is groupId determined for a new report?
+        // Option A: Passed from client (validated by CreateReportSchema) - Requires adding it back to destructuring/validation
+        // Option B: Derived from user profile/context server-side
+        // For now, assuming it was part of CreateReportSchema and validatedData
+        if (!('groupId' in validatedData)) {
+             logger.error('[saveReport] Missing groupId for create operation after validation.');
+             return { success: false, error: 'Internal server error: Missing required group info for creation.' };
         }
-        reportPayload.userId = validatedData.userId;
         reportPayload.groupId = validatedData.groupId;
 
         const newReport = new Report(reportPayload); // No need to cast if payload is built correctly
@@ -192,9 +227,11 @@ export async function saveReport(reportData: SaveReportInput): Promise<SaveRepor
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     logger.error(`[saveReport] Error during save operation (operation: ${operation}, reportId: ${reportId})`, error);
-    // Handle Mongoose validation errors specifically if needed
+    // Handle specific errors like ownership failure from assertOwnership
+    if (error.message.startsWith('Forbidden:')) {
+        return { success: false, error: error.message };
+    }
     if (error.name === 'ValidationError') {
-        // Extract more specific messages if desired
         return { success: false, error: `Database validation failed: ${error.message}` };
     }
     return { success: false, error: 'Failed to save report due to a server error.' };

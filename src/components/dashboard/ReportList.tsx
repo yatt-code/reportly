@@ -1,68 +1,93 @@
 'use client'; // Needs state for managing displayed reports
 
-import React, { useState, useCallback } from 'react'; // Added useCallback
-import { MockReport, getMockReports } from '@/lib/mockData'; // Import type and mock data function
+import React, { useState, useCallback } from 'react';
+// Import the specific types needed
+import type { MockReport } from '@/lib/mockData'; // Keep for mock data handling if needed
+import type { ReportDocument } from '@/lib/schemas/reportSchemas';
+import type { ReportListItemData } from '@/lib/schemas/reportSchemas'; // Import the list item type
 import ReportListItem from './ReportListItem';
-import { Loader2 } from 'lucide-react'; // Icon for loading state
+import { Loader2 } from 'lucide-react';
+import logger from '@/lib/utils/logger'; // For logging actions
+// Import server actions
+import { deleteReport } from '@/app/report/actions/deleteReport';
+import { duplicateReport } from '@/app/report/actions/duplicateReport';
+import toast from 'react-hot-toast';
 
 const INITIAL_REPORT_COUNT = 5;
 const REPORTS_PER_LOAD = 10; // Load 10 more each time
 const MAX_REPORTS_TO_SHOW = 50; // Limit total reports shown
 
-/**
- * Displays a list of recent reports with a "Show More" button.
- */
-const ReportList: React.FC = () => {
-    // Simulate fetching initial reports
-    const [reports, setReports] = useState<MockReport[]>(() => getMockReports(INITIAL_REPORT_COUNT));
-    const [displayedCount, setDisplayedCount] = useState(INITIAL_REPORT_COUNT);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
-    // In a real app, you'd track if there are more reports available from the backend
-    const [hasMoreReports, setHasMoreReports] = useState(true); // Assume more initially
+// Helper function to map different report types to the consistent list item type
+const mapToReportListItemData = (report: ReportDocument | MockReport): ReportListItemData => {
+    // Basic status derivation (replace with actual logic if status exists on ReportDocument)
+    const status = (report as MockReport).status || 'Complete'; // Default to Complete if not MockReport
+    const tags = (report as MockReport).sentimentTags || (report as ReportDocument).ai_tags || [];
 
-    const loadMoreReports = () => {
-        setIsLoadingMore(true);
-        // Simulate fetching more reports
-        setTimeout(() => {
-            const newCount = Math.min(displayedCount + REPORTS_PER_LOAD, MAX_REPORTS_TO_SHOW);
-            // Fetch *all* potential reports up to the new count from the mock source
-            const allPossibleReports = getMockReports(newCount);
-            setReports(allPossibleReports); // Replace the list with the newly fetched set
-            setDisplayedCount(newCount);
-            // Update hasMoreReports based on whether we reached the max or if the source has more
-            // For mock data, assume we can always generate up to MAX_REPORTS_TO_SHOW
-            setHasMoreReports(newCount < MAX_REPORTS_TO_SHOW);
-            setIsLoadingMore(false);
-        }, 500); // Simulate network delay
+    return {
+        // Use type assertion to safely access properties
+        id: (report as ReportDocument)._id || (report as MockReport).id,
+        title: report.title || 'Untitled Report', // Add fallback for title
+        status: status,
+        createdAt: new Date((report as ReportDocument).createdAt || (report as MockReport).createdAt),
+        sentimentTags: tags,
     };
+};
+
+
+interface ReportListProps {
+    initialReports: (ReportDocument | MockReport)[]; // Accept either type initially
+    // Add props for pagination/loading if handled by parent later
+    // totalReports?: number;
+    // onLoadMore?: () => Promise<void>;
+}
+
+/**
+ * Displays a list of recent reports. Handles client-side state updates
+ * for delete and duplicate actions based on callbacks from ReportListItem.
+ * Assumes initial reports are passed via props.
+ */
+const ReportList: React.FC<ReportListProps> = ({ initialReports = [] }) => {
+    // Map initial data and manage state with the consistent type
+    const [reports, setReports] = useState<ReportListItemData[]>(() =>
+        initialReports.map(mapToReportListItemData)
+    );
+    // Removed state related to client-side loading more (should be handled by parent/server component)
+    // const [displayedCount, setDisplayedCount] = useState(initialReports.length);
+    // const [isLoadingMore, setIsLoadingMore] = useState(false);
+    // const [hasMoreReports, setHasMoreReports] = useState(true); // Parent should indicate this
+
+    // Removed loadMoreReports - parent component should handle fetching/pagination
 
     // Callback for handling deletion from a list item
     const handleDeleteReport = useCallback((reportIdToDelete: string) => {
+        // Optimistically remove the report from the UI
+        // Filter using the consistent 'id' field
         setReports(currentReports => currentReports.filter(report => report.id !== reportIdToDelete));
-        // Optionally adjust displayedCount if needed, though usually not necessary on delete
-        // Check if hasMoreReports needs update (e.g., if total count is known)
-    }, []); // Empty dependency array as it only uses setReports
+        logger.log('[ReportList] Report removed from local state.', { reportIdToDelete });
+        // Note: Server action `deleteReport` handles actual deletion and toast notifications
+    }, []);
 
     // Callback for handling duplication from a list item
-    const handleDuplicateReport = useCallback((newReport: MockReport) => {
-        // Add the new report to the top of the list for visibility
-        setReports(currentReports => [newReport, ...currentReports]);
-        // Increment displayed count if it's below the max
-        setDisplayedCount(prevCount => Math.min(prevCount + 1, MAX_REPORTS_TO_SHOW));
-        // Check if hasMoreReports needs update
+    // Callback now receives ReportListItemData from the child component
+    const handleDuplicateReport = useCallback((newListItemData: ReportListItemData) => {
+        // Optimistically add the new report data (already mapped) to the UI
+        setReports(currentReports => [newListItemData, ...currentReports]);
+        logger.log('[ReportList] Duplicated report added to local state.', { newReportId: newListItemData.id });
+        // Note: Server action `duplicateReport` handles actual creation and toast notifications
     }, []); // Empty dependency array
 
     return (
         <div className="mb-6">
             <h3 className="text-lg font-semibold mb-3">Recent Reports</h3>
-            {reports.length === 0 && !isLoadingMore ? (
-                <p className="text-gray-500 dark:text-gray-400">No reports found.</p>
+            {reports.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-4">No reports found.</p>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {reports.map((report) => (
+                    {reports.map((reportData) => ( // Use a different variable name to avoid confusion
                         <ReportListItem
-                            key={report.id}
-                            report={report}
+                            key={reportData.id} // Use the consistent 'id' from ReportListItemData
+                            // Pass the correctly typed report data
+                            report={reportData}
                             onDelete={handleDeleteReport}
                             onDuplicate={handleDuplicateReport}
                         />
@@ -70,24 +95,7 @@ const ReportList: React.FC = () => {
                 </div>
             )}
 
-            {/* Show More Button */}
-            {hasMoreReports && (
-                <div className="mt-6 text-center">
-                    <button
-                        onClick={loadMoreReports}
-                        disabled={isLoadingMore}
-                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
-                    >
-                        {isLoadingMore ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-                            </>
-                        ) : (
-                            'Show More'
-                        )}
-                    </button>
-                </div>
-            )}
+            {/* Removed Show More button - Pagination/loading handled by parent */}
         </div>
     );
 };

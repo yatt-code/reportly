@@ -5,7 +5,9 @@ import { revalidatePath } from 'next/cache';
 import connectDB from '@/lib/db/connectDB';
 import Report from '@/models/Report';
 import logger from '@/lib/utils/logger';
-import { ReportIdSchema, ReportDocument } from '@/lib/schemas/reportSchemas'; // Import Zod schema AND ReportDocument type
+import { getCurrentUser } from '@/lib/auth'; // Import server-side user fetcher
+import { ReportIdSchema, ReportDocument } from '@/lib/schemas/reportSchemas';
+import { assertOwnership } from '@/lib/utils/assertOwnership'; // Import the utility
 // import { saveReport } from './saveReport'; // Keep commented unless Option 2 is chosen
 
 // Define a more specific return type
@@ -17,30 +19,31 @@ type DuplicateReportResult =
  * Server Action to duplicate an existing report by its ID.
  * Creates a new report with content copied from the original,
  * potentially modifying the title and resetting AI fields.
- *
  * @param reportId - The ID of the report to duplicate.
- * @param newUserId - The ID of the user creating the duplicate (should come from session).
- * @returns {Promise<DuplicateReportResult>} - Result object indicating success or failure.
+ * @returns {Promise<DuplicateReportResult>} - Result object indicating success or failure. The new report's ownership is assigned to the current authenticated user.
  */
-export async function duplicateReport(reportId: string, newUserId: string): Promise<DuplicateReportResult> {
+// Remove newUserId parameter, get it from session instead
+export async function duplicateReport(reportId: string): Promise<DuplicateReportResult> {
     const functionName = 'duplicateReport';
-    logger.log(`[${functionName}] Starting execution.`, { reportId, newUserId });
+    logger.log(`[${functionName}] Starting execution.`, { reportId });
 
     // --- Input Validation ---
     const idValidationResult = ReportIdSchema.safeParse({ reportId });
-    // Basic validation for newUserId (use ObjectIdSchema if it's a Mongo ID)
-    const userIdValidationResult = z.string().min(1).safeParse(newUserId); // Adjust if needed
-
-    if (!idValidationResult.success || !userIdValidationResult.success) {
-        const issues = [
-            ...(idValidationResult.success ? [] : idValidationResult.error.issues),
-            ...(userIdValidationResult.success ? [] : userIdValidationResult.error.issues),
-        ];
-        logger.error(`[${functionName}] Invalid input format.`, { reportId, newUserId, issues });
-        return { success: false, error: 'Invalid Report ID or User ID format.', issues };
+    if (!idValidationResult.success) {
+        logger.error(`[${functionName}] Invalid reportId format.`, { reportId, issues: idValidationResult.error.issues });
+        return { success: false, error: 'Invalid Report ID format.', issues: idValidationResult.error.issues };
     }
     const validatedReportId = idValidationResult.data.reportId;
-    const validatedUserId = userIdValidationResult.data;
+
+    // --- Authentication & Authorization Check ---
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        logger.error(`[${functionName}] Unauthorized: No user session found.`);
+        return { success: false, error: 'Authentication required.' };
+    }
+    const currentUserId = currentUser.id;
+    logger.log(`[${functionName}] User authenticated.`, { userId: currentUserId });
+    // --- End Auth Check ---
 
     try {
         logger.log(`[${functionName}] Connecting to database...`);
@@ -56,6 +59,13 @@ export async function duplicateReport(reportId: string, newUserId: string): Prom
             return { success: false, error: 'Original report not found.' };
         }
 
+        // --- Ownership Check for Original Report ---
+        // Use the assertOwnership utility
+        assertOwnership(originalReport, currentUserId, 'duplicate');
+        // If assertOwnership doesn't throw, we can proceed
+        logger.log(`[${functionName}] Ownership of original report verified.`);
+        // --- End Ownership Check ---
+
         logger.log(`[${functionName}] Creating duplicate report...`);
 
         // Create payload for the new report
@@ -65,7 +75,7 @@ export async function duplicateReport(reportId: string, newUserId: string): Prom
             content: originalReport.content,
             groupId: originalReport.groupId, // Keep the same group? Or assign based on new user? Needs clarification.
             // Assign the new user
-            userId: validatedUserId,
+            userId: currentUserId, // Assign to the currently authenticated user
             // Reset AI fields for the new copy
             ai_summary: '',
             ai_tags: [],
@@ -100,8 +110,12 @@ export async function duplicateReport(reportId: string, newUserId: string): Prom
 
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
-        logger.error(`[${functionName}] Error duplicating report (ID: ${validatedReportId}).`, error);
+        logger.error(`[${functionName}] Error duplicating report (Original ID: ${validatedReportId}).`, error);
         logger.log(`[${functionName}] Finished execution with error.`);
+        // Handle specific errors like ownership failure from assertOwnership
+        if (error.message.startsWith('Forbidden:')) {
+            return { success: false, error: error.message };
+        }
         if (error.name === 'ValidationError') {
             return { success: false, error: `Database validation failed for duplicate: ${error.message}` };
         }
@@ -112,5 +126,5 @@ export async function duplicateReport(reportId: string, newUserId: string): Prom
     }
 }
 
-// Note: Consider authorization logic - who is allowed to duplicate which reports?
+// Note: Authorization check added - only owner can duplicate.
 // Note: Clarify if the groupId should be copied or determined by the new user.

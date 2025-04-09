@@ -12,8 +12,8 @@ const ReportSchema = new mongoose.Schema({
   },
   // Reference to the User who created the report
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String, // Changed from ObjectId to String to match Supabase user ID
+    // ref: 'User', // Ref might not work directly with Supabase ID string, remove or adjust if needed
     required: true,
     index: true, // Index for faster user-specific report lookups
   },
