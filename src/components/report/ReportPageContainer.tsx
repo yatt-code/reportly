@@ -18,7 +18,8 @@ import { generateSuggestions, Suggestion } from '@/app/report/actions/generateSu
 import type { ReportDocument } from '@/lib/schemas/reportSchemas'; // Import ReportDocument type
 import logger from '@/lib/utils/logger';
 import AiSuggestionPanel from '@/components/AiSuggestionPanel';
-import { Loader2, AlertTriangle, ChevronLeft, Edit, Save, BrainCircuit, RefreshCw } from 'lucide-react'; // Added RefreshCw
+import CommentSection from '@/components/comments/CommentSection'; // Import CommentSection
+import { Loader2, AlertTriangle, ChevronLeft, Edit, Save, BrainCircuit, RefreshCw } from 'lucide-react';
 
 // Initialize lowlight
 const lowlight = createLowlight(common);
@@ -324,7 +325,12 @@ const ReportPageContainer: React.FC<ReportPageContainerProps> = ({
                 )}
 
                {/* TipTap Editor - Pass the editor instance */}
+               {/* TipTap Editor */}
                <TipTapEditor editor={editor} />
+
+               {/* Comment Section */}
+               {/* Pass the reportId to fetch comments */}
+               <CommentSection reportId={initialData._id} />
             </div>
 
             {/* AI Suggestions Sidebar - Render AiSuggestionPanel with props */}
