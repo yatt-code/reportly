@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css"; // Assuming you have a global CSS file
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { NotificationProvider } from "@/contexts/NotificationContext"; // Import NotificationProvider
+import { ThemeProvider } from "@/contexts/ThemeContext"; // Import ThemeProvider
 import { Toaster } from "react-hot-toast";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -20,14 +21,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* Wrap children with AuthProvider */}
+        {/* Wrap children with providers */}
         <AuthProvider>
-          {/* Wrap children needing notification context */}
-          <NotificationProvider>
-            {children}
-            {/* Place Toaster here for app-wide notifications */}
-            <Toaster position="bottom-right" />
-          </NotificationProvider>
+          <ThemeProvider>
+            <NotificationProvider>
+              {children}
+              {/* Place Toaster here for app-wide notifications */}
+              <Toaster position="bottom-right" />
+            </NotificationProvider>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

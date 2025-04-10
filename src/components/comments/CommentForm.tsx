@@ -7,6 +7,7 @@ import logger from '@/lib/utils/logger';
 import toast from 'react-hot-toast';
 import { Loader2, Send } from 'lucide-react';
 import MentionInput from './MentionInput'; // Import the mention input component
+import { showAchievementToasts } from '@/components/achievements/AchievementToast';
 
 interface CommentFormProps {
     reportId: string;
@@ -52,6 +53,14 @@ const CommentForm: React.FC<CommentFormProps> = ({
             if (result.success && result.comment) {
                 logger.log('[CommentForm] Comment posted successfully.', { commentId: result.comment._id });
                 toast.success(parentId ? 'Reply posted!' : 'Comment posted!', { id: toastId });
+
+                // Check if any achievements were unlocked
+                if (result.unlocked && result.unlocked.length > 0) {
+                    logger.log('[CommentForm] Achievements unlocked:', { achievements: result.unlocked });
+                    // Show achievement toasts
+                    showAchievementToasts(result.unlocked);
+                }
+
                 // Call onSuccess callback with the new comment data (needs mapping if types differ)
                 // Assuming server action returns data compatible with CommentData for now
                 onSuccess(result.comment as CommentData);

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import connectDB from '@/lib/db/connectDB';
 import CommentModel, { IComment } from '@/models/Comment'; // Use the Mongoose model and interface
 import { getCurrentUser } from '@/lib/auth';
-import { hasRole } from '@/lib/rbac/utils'; // Use server-side role check
+import { checkDeletePermission } from '@/lib/comments/deleteCommentAuth';
 import { CommentIdSchema } from '@/lib/schemas/commentSchemas';
 import logger from '@/lib/utils/logger';
 import { revalidatePath } from 'next/cache'; // To potentially update report page UI
@@ -32,8 +32,7 @@ export async function deleteComment(commentId: string): Promise<DeleteCommentRes
         return { success: false, error: 'Authentication required.' };
     }
     const currentUserId = currentUser.id;
-    const isAdmin = hasRole(currentUser, 'admin'); // Check if user is admin
-    logger.log(`[${functionName}] User authenticated.`, { userId: currentUserId, isAdmin });
+    logger.log(`[${functionName}] User authenticated.`, { userId: currentUserId });
 
     // --- Input Validation ---
     const validationResult = CommentIdSchema.safeParse({ commentId });
@@ -57,12 +56,15 @@ export async function deleteComment(commentId: string): Promise<DeleteCommentRes
             return { success: false, error: 'Comment not found.' };
         }
 
-        // Check ownership OR admin role
-        if (commentToDelete.userId !== currentUserId && !isAdmin) {
-            logger.error(`[${functionName}] Authorization failed: User ${currentUserId} (not admin) attempted to delete comment ${validatedCommentId} owned by ${commentToDelete.userId}.`);
+        // Check permission using the extracted function
+        const hasPermission = await checkDeletePermission(commentToDelete.userId, currentUserId);
+
+        if (!hasPermission) {
+            logger.error(`[${functionName}] Authorization failed: User ${currentUserId} attempted to delete comment ${validatedCommentId} owned by ${commentToDelete.userId}.`);
             return { success: false, error: 'Forbidden: You do not have permission to delete this comment.' };
         }
-        logger.log(`[${functionName}] Authorization verified (User: ${currentUserId}, IsAdmin: ${isAdmin}). Proceeding with deletion...`);
+
+        logger.log(`[${functionName}] Authorization verified. Proceeding with deletion...`);
         // --- End Auth Check ---
 
         // Perform deletion

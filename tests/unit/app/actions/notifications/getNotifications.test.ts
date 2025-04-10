@@ -44,6 +44,8 @@ const mockCookieStore = {
 
 
 describe('getNotifications Server Action', () => {
+    // Mock environment variables
+    const originalEnv = process.env;
 
     beforeEach(() => {
         // Reset mocks before each test
@@ -54,6 +56,18 @@ describe('getNotifications Server Action', () => {
         mockSupabaseEqSeen.mockReturnThis();
         mockSupabaseOrder.mockReset(); // Reset the final call mock
         mockGetUser.mockReset();
+
+        // Setup environment variables
+        process.env = {
+            ...originalEnv,
+            NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
+            NEXT_PUBLIC_SUPABASE_ANON_KEY: 'mock-anon-key',
+        };
+    });
+
+    afterEach(() => {
+        // Restore original environment
+        process.env = originalEnv;
     });
 
     it('should return notifications successfully for an authenticated user', async () => {

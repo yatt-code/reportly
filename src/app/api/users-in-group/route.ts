@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr'; // Use server client for auth
-import connectDB from '@/lib/db/connectDB';
-import UserModel from '@/models/User';
 import logger from '@/lib/utils/logger';
-import type { UserDocument } from '@/lib/schemas/reportSchemas'; // Import UserDocument type
+import { getUsersInGroup } from '@/lib/users/getUsersInGroup';
 
 // Define the structure of the user data returned by the API
 interface MentionableUser {
@@ -40,40 +38,11 @@ export async function GET(request: Request) {
     // --- End Authentication ---
 
     try {
-        await connectDB();
+        // Use the extracted function to get users in the same group
+        const users = await getUsersInGroup(currentUser.id);
 
-        // --- Find Current User's Group ---
-        // We need the user's profile from our DB (which has groupId) using their Supabase ID
-        // Assuming supabaseUserId is stored in your User model
-        // Cast the result to UserDocument
-        const userProfile = await UserModel.findOne({ supabaseUserId: currentUser.id }).lean() as UserDocument | null;
-
-        if (!userProfile || !userProfile.groupId) {
-            logger.warn(`[${functionName}] User profile or groupId not found for user: ${currentUser.id}`);
-            // Return empty list if user isn't in a group or profile missing
-            return NextResponse.json({ users: [] });
-        }
-        const userGroupId = userProfile.groupId;
-        logger.log(`[${functionName}] User ${currentUser.id} belongs to group ${userGroupId}.`);
-        // --- End Group Find ---
-
-        // --- Fetch Users in the Same Group ---
-        // Fetch users matching the groupId, selecting only necessary fields
-        const groupUsers = await UserModel.find(
-            { groupId: userGroupId },
-            { supabaseUserId: 1, username: 1, name: 1, _id: 0 } // Select fields, exclude MongoDB _id
-        ).lean();
-
-        // Map to the desired output structure
-        const mentionableUsers: MentionableUser[] = groupUsers.map(u => ({
-            id: u.supabaseUserId || '', // Use supabaseUserId as the primary ID
-            username: u.username,
-            name: u.name,
-        })).filter(u => u.id); // Filter out any potential users without a supabaseUserId
-
-        logger.log(`[${functionName}] Found ${mentionableUsers.length} users in group ${userGroupId}.`);
-        return NextResponse.json({ users: mentionableUsers });
-        // --- End Fetch Users ---
+        logger.log(`[${functionName}] Found ${users.length} users in the same group as user ${currentUser.id}.`);
+        return NextResponse.json({ users });
 
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));

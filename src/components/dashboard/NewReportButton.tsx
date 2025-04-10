@@ -6,6 +6,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { saveReport } from '@/app/report/actions/saveReport'; // Use saveReport for creation
 import logger from '@/lib/utils/logger';
+import { showAchievementToasts } from '@/components/achievements/AchievementToast';
 
 /**
  * Floating Action Button to create a new report and redirect to the editor.
@@ -39,6 +40,14 @@ const NewReportButton: React.FC = () => {
                 const newReportId = result.report._id;
                 logger.log('[NewReportButton] New report created successfully.', { newReportId });
                 toast.success('New report created!', { id: toastId });
+
+                // Check if any achievements were unlocked
+                if (result.unlocked && result.unlocked.length > 0) {
+                    logger.log('[NewReportButton] Achievements unlocked:', { achievements: result.unlocked });
+                    // Show achievement toasts
+                    showAchievementToasts(result.unlocked);
+                }
+
                 // Redirect to the editor page for the new report, forcing edit mode
                 router.push(`/report/${newReportId}?edit=true`);
             } else if (!result.success) { // Check failure case before accessing error

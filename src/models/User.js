@@ -35,10 +35,11 @@ const UserSchema = new mongoose.Schema({
     enum: ['admin', 'developer'],
     default: 'developer',
   },
-  achievements: {
-    type: [String], // e.g., ["streak-3", "first-report"]
-    default: [],
-  },
+  // Removed achievements array field - using separate Achievement collection now
+  // achievements: {
+  //   type: [String],
+  //   default: [],
+  // },
   // Link to the Group model
   groupId: {
     type: mongoose.Schema.Types.ObjectId,
