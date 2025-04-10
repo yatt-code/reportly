@@ -4,6 +4,7 @@ import "./globals.css"; // Assuming you have a global CSS file
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { NotificationProvider } from "@/contexts/NotificationContext"; // Import NotificationProvider
 import { ThemeProvider } from "@/contexts/ThemeContext"; // Import ThemeProvider
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext"; // Import WorkspaceProvider
 import { Toaster } from "react-hot-toast";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -24,11 +25,13 @@ export default function RootLayout({
         {/* Wrap children with providers */}
         <AuthProvider>
           <ThemeProvider>
-            <NotificationProvider>
-              {children}
-              {/* Place Toaster here for app-wide notifications */}
-              <Toaster position="bottom-right" />
-            </NotificationProvider>
+            <WorkspaceProvider>
+              <NotificationProvider>
+                {children}
+                {/* Place Toaster here for app-wide notifications */}
+                <Toaster position="bottom-right" />
+              </NotificationProvider>
+            </WorkspaceProvider>
           </ThemeProvider>
         </AuthProvider>
       </body>

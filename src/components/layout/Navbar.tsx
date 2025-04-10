@@ -7,6 +7,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 import { useNotifications } from '@/contexts/NotificationContext';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
+import WorkspaceSwitcher from '@/components/workspace/WorkspaceSwitcher';
 import { Menu, X, FileText, Home, Settings, LogOut, User } from 'lucide-react';
 import { logout } from '@/lib/auth';
 
@@ -17,29 +18,29 @@ const Navbar: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  
+
   // Handle logout
   const handleLogout = async () => {
     await logout();
     // Redirect is handled by middleware
   };
-  
+
   // Toggle mobile menu
   const toggleMenu = () => {
     setIsMenuOpen(prev => !prev);
   };
-  
+
   // Close mobile menu
   const closeMenu = () => {
     setIsMenuOpen(false);
   };
-  
+
   // Check if a link is active
   const isActive = (path: string) => {
     if (path === '/' && pathname !== '/') return false;
     return pathname.startsWith(path);
   };
-  
+
   // Navigation links based on authentication status
   const navLinks = isAuthenticated
     ? [
@@ -61,14 +62,14 @@ const Navbar: React.FC = () => {
           <div className="flex">
             {/* Logo */}
             <div className="flex-shrink-0 flex items-center">
-              <Link 
-                href={isAuthenticated ? '/dashboard' : '/'} 
+              <Link
+                href={isAuthenticated ? '/dashboard' : '/'}
                 className="text-xl font-bold text-blue-600 dark:text-blue-400 transition-colors duration-300"
               >
                 Reportly
               </Link>
             </div>
-            
+
             {/* Desktop navigation */}
             <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
               {navLinks.map(({ href, label, icon: Icon }) => (
@@ -87,19 +88,24 @@ const Navbar: React.FC = () => {
               ))}
             </div>
           </div>
-          
+
           {/* Right side items */}
           <div className="flex items-center">
+            {/* Workspace Switcher (only for authenticated users) */}
+            {isAuthenticated && (
+              <WorkspaceSwitcher className="mr-2" />
+            )}
+
             {/* Theme toggle */}
             <ThemeToggle className="mr-2" />
-            
+
             {/* Notifications (only for authenticated users) */}
             {isAuthenticated && (
               <div className="ml-2 mr-2">
                 <NotificationDropdown />
               </div>
             )}
-            
+
             {/* Logout button (only for authenticated users) */}
             {isAuthenticated && (
               <button
@@ -110,7 +116,7 @@ const Navbar: React.FC = () => {
                 Logout
               </button>
             )}
-            
+
             {/* Mobile menu button */}
             <div className="flex items-center sm:hidden">
               <button
@@ -129,7 +135,7 @@ const Navbar: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Mobile menu */}
       <div className={`sm:hidden ${isMenuOpen ? 'block' : 'hidden'}`}>
         <div className="pt-2 pb-3 space-y-1 px-4">
@@ -148,7 +154,7 @@ const Navbar: React.FC = () => {
               {label}
             </Link>
           ))}
-          
+
           {/* Logout in mobile menu (only for authenticated users) */}
           {isAuthenticated && (
             <button
