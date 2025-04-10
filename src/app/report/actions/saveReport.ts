@@ -12,6 +12,10 @@ import logger from '@/lib/utils/logger';
 import { getCurrentUser } from '@/lib/auth';
 import { CreateReportSchema, UpdateReportSchema, ReportDocument } from '@/lib/schemas/reportSchemas';
 import { assertOwnership } from '@/lib/utils/assertOwnership'; // Import the utility
+import { checkAchievements } from '@/lib/achievements/checkAchievements';
+import { getUserReportCount, getUserReportStreak } from '@/lib/achievements/userStats';
+import { getAchievementDetails, AchievementDetails } from '@/lib/achievements/getAchievementDetails';
+import { addXp } from '@/lib/xp';
 
 // Define a combined input type for the function parameter
 // This accepts either a creation payload (without reportId) or an update payload (with reportId)
@@ -21,7 +25,7 @@ type SaveReportInput = z.infer<typeof CreateReportSchema> | z.infer<typeof Updat
 
 // Define a more specific return type
 type SaveReportResult =
-    | { success: true; report: any } // Consider defining a proper Report type based on your model
+    | { success: true; report: any; unlocked: AchievementDetails[]; xpGained?: number; levelUp?: boolean; newLevel?: number } // Include unlocked achievements and XP info
     | { success: false; error: string; issues?: z.ZodIssue[] };
 
 
@@ -218,11 +222,61 @@ export async function saveReport(reportData: SaveReportInput): Promise<SaveRepor
       revalidatePath(`/report/${savedReport._id}`); // If you have dynamic report pages
       revalidatePath('/dashboard'); // Revalidate the dashboard page
       logger.log('Path revalidation complete.');
+
+    }
+
+    // Initialize unlocked achievements array and XP result
+    let unlockedAchievements: AchievementDetails[] = [];
+    let xpResult = { newXp: 0, newLevel: 1, levelUp: false, unlockedAchievements: [] as string[] };
+
+    // Check for achievements and add XP if this was a create operation
+    if (operation === 'create' && savedReport) {
+      try {
+        // Add XP for the report creation action
+        xpResult = await addXp(currentUserId, 'report');
+        logger.log(`[saveReport] Added XP for report creation:`, { xpResult });
+
+        // Get the user's total report count
+        const totalReports = await getUserReportCount(currentUserId);
+
+        // Get the user's report streak (days)
+        const reportDaysStreak = await getUserReportStreak(currentUserId);
+
+        // Check for achievements based on report creation
+        // Note: addXp already checks for achievements, but we're keeping this for now
+        // to ensure backward compatibility and to check for report-specific achievements
+        const newAchievementSlugs = await checkAchievements(currentUserId, "onReportCreate", {
+          totalReports,
+          reportDaysStreak,
+          reportId: savedReport._id.toString()
+        });
+
+        // Combine achievement slugs from both sources
+        const allAchievementSlugs = Array.from(new Set([...newAchievementSlugs, ...xpResult.unlockedAchievements]));
+
+        if (allAchievementSlugs.length > 0) {
+          logger.log(`[saveReport] User unlocked ${allAchievementSlugs.length} new achievements:`, { allAchievementSlugs });
+
+          // Get detailed information about the unlocked achievements
+          unlockedAchievements = getAchievementDetails(allAchievementSlugs);
+        }
+      } catch (achievementError) {
+        // Log the error but don't fail the report creation process
+        const error = achievementError instanceof Error ? achievementError : new Error(String(achievementError));
+        logger.error(`[saveReport] Error checking achievements or adding XP:`, error);
+      }
     }
 
     // Return only serializable data
-    logger.log(`saveReport action completed successfully (operation: ${operation}, ID: ${savedReport._id}).`);
-    return { success: true, report: JSON.parse(JSON.stringify(savedReport)) };
+    logger.log(`saveReport action completed successfully (operation: ${operation}, ID: ${savedReport?._id}).`);
+    return {
+      success: true,
+      report: JSON.parse(JSON.stringify(savedReport)),
+      unlocked: unlockedAchievements,
+      xpGained: operation === 'create' ? xpResult.newXp : undefined,
+      levelUp: operation === 'create' ? xpResult.levelUp : undefined,
+      newLevel: operation === 'create' ? xpResult.newLevel : undefined
+    };
 
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));

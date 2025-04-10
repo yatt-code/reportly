@@ -9,11 +9,16 @@ import { PostCommentSchema, PostCommentInput } from '@/lib/schemas/commentSchema
 import { ReportDocument } from '@/lib/schemas/reportSchemas';
 import logger from '@/lib/utils/logger';
 import { revalidatePath } from 'next/cache';
-import { getSupabaseServiceRoleClient } from '@/lib/supabaseClient'; // Import SERVICE ROLE client
+// Supabase client is now used in processMentions
+import { processMentions } from '@/lib/comments/processMentions';
+import { checkAchievements } from '@/lib/achievements/checkAchievements';
+import { getUserCommentCount, getUserCommentStreak } from '@/lib/achievements/userStats';
+import { getAchievementDetails, AchievementDetails } from '@/lib/achievements/getAchievementDetails';
+import { addXp } from '@/lib/xp';
 
 // Define return type
 type PostCommentResult =
-    | { success: true; comment: any } // Consider defining a proper Comment type based on model/interface
+    | { success: true; comment: any; unlocked: AchievementDetails[]; xpGained?: number; levelUp?: boolean; newLevel?: number } // Include unlocked achievements and XP info
     | { success: false; error: string; issues?: z.ZodIssue[] };
 
 // --- Mock User Lookup ---
@@ -113,62 +118,83 @@ export async function postComment(input: PostCommentInput): Promise<PostCommentR
         });
 
         // --- Mention Parsing & Resolution ---
+        // Extract mentions using regex to store in the comment model
         const mentionRegex = /@([a-zA-Z0-9_]+)/g;
-        // Use Set to avoid duplicate usernames if mentioned multiple times
         const mentionedUsernames = new Set<string>();
         let match;
         while ((match = mentionRegex.exec(content)) !== null) {
-            mentionedUsernames.add(match[1]); // Add the captured username (group 1)
+            mentionedUsernames.add(match[1]);
         }
 
         let mentionedUserIds: string[] = [];
         if (mentionedUsernames.size > 0) {
             logger.log(`[${functionName}] Found potential mentions:`, Array.from(mentionedUsernames));
-            // Resolve usernames to IDs (using mock function for now)
-            // Pass report.groupId for group scoping in real implementation
+            // For now, we'll still use the mock function to resolve usernames to IDs for the comment model
+            // In a real implementation, this would use the same lookup as processMentions
             mentionedUserIds = await mockResolveUsernamesToIds(Array.from(mentionedUsernames), report?.groupId);
-            logger.log(`[${functionName}] Resolved mention IDs (mock):`, mentionedUserIds);
         }
-        newComment.mentions = mentionedUserIds; // Assign resolved IDs
+        newComment.mentions = mentionedUserIds;
         // --- End Mention Parsing ---
 
         const savedComment: IComment = await newComment.save(); // Add type annotation
         const savedCommentId = (savedComment._id as any).toString(); // Cast _id to any before toString()
         logger.log(`[${functionName}] Comment created successfully.`, { commentId: savedCommentId, mentions: mentionedUserIds });
 
-        // --- Insert Notifications for Mentions ---
-        if (mentionedUserIds.length > 0) {
-            const supabaseService = getSupabaseServiceRoleClient(); // Use service role client
-            const notificationsToInsert = mentionedUserIds
-                .filter(mentionedUserId => mentionedUserId !== currentUserId) // Don't notify self
-                .map(mentionedUserId => ({
-                    userId: mentionedUserId, // The user being notified
-                    type: 'mention' as const, // Use const assertion for enum type safety
-                    contextId: savedCommentId, // ID of the comment where mention occurred
-                    reportId: reportId, // ID of the report context
-                    // seen defaults to false in DB schema
-                }));
-
-            if (notificationsToInsert.length > 0) {
-                logger.log(`[${functionName}] Inserting ${notificationsToInsert.length} mention notifications...`);
-                const { error: notificationError } = await supabaseService
-                    .from('notifications')
-                    .insert(notificationsToInsert);
-
-                if (notificationError) {
-                    // Log error but don't fail the whole comment posting process
-                    logger.error(`[${functionName}] Failed to insert mention notifications.`, notificationError);
-                } else {
-                    logger.log(`[${functionName}] Mention notifications inserted successfully.`);
-                }
-            }
-        }
-        // --- End Notification Insertion ---
+        // --- Process Mentions and Create Notifications ---
+        // Use the extracted processMentions function to handle mention notifications
+        await processMentions(content, savedCommentId, reportId, currentUserId);
+        // --- End Notification Processing ---
 
         // Revalidate the report page path to show the new comment
         revalidatePath(`/report/${reportId}`);
 
-        return { success: true, comment: JSON.parse(JSON.stringify(savedComment)) };
+        // Check for achievements and add XP
+        let unlockedAchievements: AchievementDetails[] = [];
+        let xpResult = { newXp: 0, newLevel: 1, levelUp: false, unlockedAchievements: [] as string[] };
+
+        try {
+            // Add XP for the comment action
+            xpResult = await addXp(currentUserId, 'comment');
+            logger.log(`[${functionName}] Added XP for comment:`, { xpResult });
+
+            // Get the user's total comment count
+            const totalComments = await getUserCommentCount(currentUserId);
+
+            // Get the user's comment streak (days)
+            const commentDaysStreak = await getUserCommentStreak(currentUserId);
+
+            // Check for achievements based on comment activity
+            // Note: addXp already checks for achievements, but we're keeping this for now
+            // to ensure backward compatibility and to check for comment-specific achievements
+            const newAchievementSlugs = await checkAchievements(currentUserId, "onComment", {
+                totalComments,
+                commentDaysStreak,
+                reportId
+            });
+
+            // Combine achievement slugs from both sources
+            const allAchievementSlugs = Array.from(new Set([...newAchievementSlugs, ...xpResult.unlockedAchievements]));
+
+            if (allAchievementSlugs.length > 0) {
+                logger.log(`[${functionName}] User unlocked ${allAchievementSlugs.length} new achievements:`, { allAchievementSlugs });
+
+                // Get detailed information about the unlocked achievements
+                unlockedAchievements = getAchievementDetails(allAchievementSlugs);
+            }
+        } catch (achievementError) {
+            // Log the error but don't fail the comment posting process
+            const error = achievementError instanceof Error ? achievementError : new Error(String(achievementError));
+            logger.error(`[${functionName}] Error checking achievements or adding XP:`, error);
+        }
+
+        return {
+            success: true,
+            comment: JSON.parse(JSON.stringify(savedComment)),
+            unlocked: unlockedAchievements,
+            xpGained: xpResult.newXp,
+            levelUp: xpResult.levelUp,
+            newLevel: xpResult.newLevel
+        };
 
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
