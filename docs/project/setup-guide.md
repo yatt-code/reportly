@@ -92,7 +92,7 @@ This visual guide will help you understand the Reportly architecture and setup p
 4. Configure network access (IP whitelist)
 5. Get connection string and add to `.env.local`:
    ```
-   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/reportly
+   MONGODB_URI=mongodb+srv://<your_username>:<your_password>@cluster.mongodb.net/reportly
    ```
 
 ## 🔐 Supabase Setup
