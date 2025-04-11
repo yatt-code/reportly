@@ -1,4 +1,6 @@
 import logger from '@/lib/utils/logger';
+import { callAI } from '@/lib/ai/providers/aiClient';
+import { selectModel } from '@/lib/ai/providers/modelSelector';
 
 /**
  * @typedef {object} ReportSuggestion
@@ -21,7 +23,6 @@ export interface ReportSuggestion {
 
 /**
  * Fetches AI-powered suggestions for a given report ID or content.
- * MOCK IMPLEMENTATION: Returns static placeholder suggestions.
  *
  * @param {string} reportId - The ID of the report to get suggestions for.
  * @param {string} [content] - Optional: The current report content (might influence suggestions).
@@ -31,52 +32,75 @@ export async function fetchSuggestions(reportId: string, content?: string): Prom
     const functionName = 'fetchSuggestions';
     logger.log(`[${functionName}] Fetching suggestions for report ID: ${reportId}`, { hasContent: !!content });
 
-    // --- Mock AI Call ---
     try {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
-
-        // Generate mock suggestions
-        const mockSuggestions: ReportSuggestion[] = [
-            {
-                id: `sug-${reportId}-1`,
-                type: 'clarity',
-                suggestionText: "Consider rephrasing the section about 'project deployment' for better clarity.",
-                confidence: 0.85,
-            },
-            {
-                id: `sug-${reportId}-2`,
-                type: 'conciseness',
-                suggestionText: "The paragraph starting 'Regarding the user feedback...' could be more concise.",
-                confidence: 0.78,
-            },
-            {
-                id: `sug-${reportId}-3`,
-                type: 'grammar',
-                suggestionText: "Check grammar near '...the data was processed succesfully...'",
-                confidence: 0.92,
-                context: { originalText: 'succesfully' }
-            },
-        ];
-
-        // Add more suggestions based on content length or randomly
-        if (content && content.length > 500) {
-             mockSuggestions.push({
-                id: `sug-${reportId}-4`,
-                type: 'style',
-                suggestionText: "Ensure consistent tone throughout the report.",
-                confidence: 0.65,
-            });
+        // If no content is provided, we can't generate suggestions
+        if (!content || content.trim().length === 0) {
+            logger.warn(`[${functionName}] No content provided for report ID: ${reportId}`);
+            return [];
         }
 
-        logger.log(`[${functionName}] Mock suggestions generated successfully.`, { count: mockSuggestions.length });
-        return mockSuggestions;
+        // Select the appropriate model for suggestions
+        const model = process.env.AI_SUGGESTION_MODEL || selectModel({
+            task: 'enhancement',
+            quality: 'medium',
+            maxTokens: 500,
+            costSensitive: true
+        });
+
+        // Prepare the prompt
+        const prompt = `Analyze the following report content and provide 3-5 specific suggestions for improvement. Focus on clarity, conciseness, grammar, and style.\n\nReport ID: ${reportId}\nContent: ${content.substring(0, 2000)}${content.length > 2000 ? '...' : ''}`;
+
+        // Call the AI with our unified interface
+        const response = await callAI({
+            prompt,
+            systemPrompt: "You are a helpful writing assistant. Analyze the provided report content and suggest specific improvements. Return your response as a JSON array with objects containing 'id' (string), 'type' (one of: 'grammar', 'clarity', 'conciseness', 'style'), 'suggestionText' (string), 'confidence' (number between 0-1), and optional 'context' object with 'originalText' property. Be specific and actionable in your suggestions.",
+            model,
+            temperature: 0.4,
+            maxTokens: 500
+        });
+
+        // Parse the response to extract suggestions
+        let suggestions: ReportSuggestion[] = [];
+        try {
+            // Try to parse as JSON
+            const parsedResponse = JSON.parse(response.content.trim());
+
+            // Validate the structure
+            if (Array.isArray(parsedResponse)) {
+                // Process each suggestion and ensure it has the required properties
+                suggestions = parsedResponse
+                    .map((s: any, index: number) => ({
+                        id: s.id || `sug-${reportId}-${index + 1}`,
+                        type: s.type && ['grammar', 'clarity', 'conciseness', 'style', 'nextSentence'].includes(s.type)
+                            ? s.type as ReportSuggestion['type']
+                            : 'clarity',
+                        suggestionText: s.suggestionText || s.suggestion || 'Improve this section',
+                        confidence: typeof s.confidence === 'number' && s.confidence >= 0 && s.confidence <= 1
+                            ? s.confidence
+                            : 0.7,
+                        context: s.context || undefined
+                    }))
+                    .filter((s: ReportSuggestion) => s.suggestionText.length > 0);
+            }
+        } catch (parseError) {
+            // If parsing fails, create a fallback suggestion
+            logger.warn(`[${functionName}] Failed to parse AI response as JSON. Using fallback.`, parseError);
+            suggestions = [
+                {
+                    id: `sug-${reportId}-fallback`,
+                    type: 'clarity',
+                    suggestionText: `AI suggested: ${response.content.trim().substring(0, 100)}...`,
+                    confidence: 0.5
+                }
+            ];
+        }
+
+        logger.log(`[${functionName}] AI suggestions generated successfully.`, { count: suggestions.length });
+        return suggestions;
 
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
-        logger.error(`[${functionName}] Failed to generate mock suggestions.`, error);
-        // In a real scenario, you might return an empty array or throw
+        logger.error(`[${functionName}] Failed to generate AI suggestions.`, error);
         return [];
     }
-    // --- End Mock AI Call ---
 }

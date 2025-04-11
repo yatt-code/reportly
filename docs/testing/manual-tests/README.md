@@ -10,6 +10,7 @@ This directory contains manual test scripts for various features and components 
 ### Editor
 - [Editor Tests](editor/editor-tests.md) - Rich text editor functionality tests
 - [AI Suggestion Tests](editor/ai-suggestion-tests.md) - AI-powered suggestion tests
+- [AI Providers Tests](editor/ai-providers-test.md) - OpenRouter integration and multiple AI provider tests
 
 ### Social Features
 - [Comment & Mention Tests](social/comment-mention-tests.md) - Comment system and @mention tests

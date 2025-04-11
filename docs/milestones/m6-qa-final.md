@@ -33,6 +33,9 @@ The following test checklist is grouped by feature category and criticality for 
 | Suggestions appear after typing | Integration | Debounce + server call | [x] |
 | Accept/Dismiss applies edit | Component | DOM change + state update | [x] |
 | Suggestion panel handles empty/error state | Unit | Conditional rendering validated | [x] |
+| OpenAI provider integration | Integration | Moved to [Milestone 9](./m9-ai-providers.md) | - |
+| OpenRouter provider integration | Integration | Moved to [Milestone 9](./m9-ai-providers.md) | - |
+| Provider switching via env var | Unit | Moved to [Milestone 9](./m9-ai-providers.md) | - |
 
 ### 💬 Comments & Mentions
 
@@ -87,7 +90,13 @@ The following test checklist is grouped by feature category and criticality for 
 
 ---
 
+### 🔄 AI Provider Integration
+
+**Note:** The OpenRouter integration and multiple AI provider support has been moved to [Milestone 9: Multiple AI Providers](./m9-ai-providers.md). A comprehensive test plan has been created and is available in the `docs/manual/ai-providers-test.md` file.
+
+---
+
 ## Next Steps
 
-After completing all tests in this checklist, proceed to the final review and deployment preparation phase. Ensure all critical bugs are addressed and the application meets the defined quality standards before release.
+After completing all tests in this checklist, proceed to the final review and deployment preparation phase. Ensure all critical bugs are addressed and the application meets the defined quality standards before release. Special attention should be given to the OpenRouter integration to ensure it works correctly with all AI features.
 

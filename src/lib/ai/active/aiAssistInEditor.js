@@ -1,7 +1,6 @@
 import logger from '@/lib/utils/logger';
-
-// Placeholder for actual AI client initialization if needed
-// const aiClient = require('@/lib/ai/client');
+import { callAI } from '@/lib/ai/providers/aiClient';
+import { selectModel } from '@/lib/ai/providers/modelSelector';
 
 /**
  * @typedef {object} AISuggestion
@@ -28,32 +27,66 @@ export async function suggestImprovements(text) {
     return [];
   }
 
-  // --- Mock AI Call ---
   try {
-    logger.log(`[${functionName}] Simulating AI call for text suggestions...`);
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 150 + Math.random() * 200));
+    logger.log(`[${functionName}] Making AI call for text suggestions...`);
 
-    // Mock response generation based on input text
-    const mockSuggestions = [
-      { suggestion: `Consider rephrasing the start: "${text.substring(0, 15)}..." for clarity.`, confidence: Math.random() * 0.3 + 0.6 },
-      { suggestion: `Could this sentence be more concise? "${text.substring(Math.max(0, text.length - 20))}"`, confidence: Math.random() * 0.4 + 0.5 },
-    ];
+    // Select the appropriate model for text enhancement
+    const model = process.env.AI_ENHANCEMENT_MODEL || selectModel({
+      task: 'enhancement',
+      quality: 'medium',
+      maxTokens: 200,
+      costSensitive: true
+    });
 
-    // Add a third suggestion sometimes
-    if (Math.random() > 0.5) {
-        mockSuggestions.push({ suggestion: `Check grammar near "...${text.substring(text.length / 2, text.length / 2 + 10)}..."`, confidence: Math.random() * 0.2 + 0.4 });
+    // Prepare the prompt
+    const prompt = `Analyze the following text and provide 2-3 specific suggestions for improvement. Focus on clarity, conciseness, and grammar.\n\nText: ${text}`;
+
+    // Call the AI with our unified interface
+    const response = await callAI({
+      prompt: prompt,
+      systemPrompt: "You are a helpful writing assistant. Analyze the provided text and suggest specific improvements. Return your response as a JSON array with objects containing 'suggestion' (string) and 'confidence' (number between 0-1) properties. Be specific and actionable in your suggestions.",
+      model: model,
+      temperature: 0.4,
+      maxTokens: 200
+    });
+
+    // Parse the response to extract suggestions
+    let suggestions = [];
+    try {
+      // Try to parse as JSON
+      suggestions = JSON.parse(response.content.trim());
+
+      // Validate the structure
+      if (!Array.isArray(suggestions)) {
+        throw new Error('Response is not an array');
+      }
+
+      // Ensure each suggestion has the required properties
+      suggestions = suggestions.filter(s =>
+        typeof s === 'object' &&
+        typeof s.suggestion === 'string' &&
+        typeof s.confidence === 'number' &&
+        s.confidence >= 0 && s.confidence <= 1
+      );
+    } catch (parseError) {
+      // If parsing fails, create a fallback suggestion
+      logger.warn(`[${functionName}] Failed to parse AI response as JSON. Using fallback.`, parseError);
+      suggestions = [
+        {
+          suggestion: `AI suggested: ${response.content.trim().substring(0, 100)}...`,
+          confidence: 0.5
+        }
+      ];
     }
 
-    logger.log(`[${functionName}] Mock AI call successful. Generated ${mockSuggestions.length} suggestions.`);
+    logger.log(`[${functionName}] AI call successful. Generated ${suggestions.length} suggestions.`);
     logger.log(`[${functionName}] Finished execution successfully.`);
-    return mockSuggestions;
+    return suggestions;
 
   } catch (error) {
-    logger.error(`[${functionName}] Mock AI call simulation failed.`, error);
+    logger.error(`[${functionName}] AI call failed.`, error);
     logger.log(`[${functionName}] Finished execution with error.`);
     // Rethrow or handle as appropriate for the calling action
     throw new Error(`[${functionName}] AI suggestion generation failed: ${error.message}`);
   }
-  // --- End Mock AI Call ---
 }

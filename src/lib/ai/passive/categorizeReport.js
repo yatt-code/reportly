@@ -1,4 +1,6 @@
 import logger from '@/lib/utils/logger';
+import { callAI } from '@/lib/ai/providers/aiClient';
+import { selectModel } from '@/lib/ai/providers/modelSelector';
 
 /**
  * Categorizes the given content using an AI model, assigning relevant tags.
@@ -20,37 +22,37 @@ export async function categorizeReport(content, summary) {
     return { tags: [], meta: { modelUsed: 'N/A', error: 'Invalid input content' } };
   }
 
-  // --- Placeholder AI Call ---
-  // Replace this with your actual AI provider logic for categorization/tagging.
   try {
-    logger.log(`[${functionName}] Attempting AI call (mock)...`);
-    // Example prompt structure (adjust based on your provider and needs)
-    // const prompt = `Analyze the following report content (and its summary if provided) and assign 1-3 relevant category tags from this list: [bug, feature, update, internal, documentation, meeting, research].\n\nSummary: ${summary || 'N/A'}\n\nContent: ${content}`;
-    // const response = await aiClient.completions.create({
-    //   model: process.env.AI_CATEGORY_MODEL || "gpt-3.5-turbo",
-    //   prompt: prompt,
-    //   max_tokens: 20,
-    //   temperature: 0.3,
-    // });
-    // // Parse the response to extract tags (e.g., assuming comma-separated string or JSON array)
-    // const rawTags = response.choices[0].text.trim();
-    // const tags = rawTags.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean);
+    logger.log(`[${functionName}] Attempting AI call...`);
 
-    // --- Mock Response ---
-    await new Promise(resolve => setTimeout(resolve, 60)); // Simulate network delay
-    const mockTags = ['feature', 'update']; // Example tags
-    const meta = {
-      modelUsed: 'mock-categorizer-v1',
-      promptTokens: (content.length + (summary?.length || 0)) / 4, // Rough estimate
-      completionTokens: mockTags.join(',').length / 4, // Rough estimate
-      totalTokens: (content.length + (summary?.length || 0) + mockTags.join(',').length) / 4,
-      cost: 0.00015, // Mock cost
-    };
-    // --- End Mock Response ---
+    // Select the appropriate model for categorization
+    const model = process.env.AI_CATEGORY_MODEL || selectModel({
+      task: 'categorization',
+      quality: 'medium',
+      maxTokens: 50,
+      costSensitive: true
+    });
 
-    logger.log(`[${functionName}] AI call successful.`, { tags: mockTags, modelUsed: meta.modelUsed });
+    // Prepare the prompt
+    const prompt = `Analyze the following report content (and its summary if provided) and assign 1-3 relevant category tags from this list: [bug, feature, update, internal, documentation, meeting, research].\n\nSummary: ${summary || 'N/A'}\n\nContent: ${content}`;
+
+    // Call the AI with our unified interface
+    const response = await callAI({
+      prompt: prompt,
+      systemPrompt: "You are a helpful assistant that categorizes report content. Return only the category tags as a comma-separated list, with no additional text.",
+      model: model,
+      temperature: 0.3,
+      maxTokens: 50
+    });
+
+    // Parse the response to extract tags
+    const rawTags = response.content.trim();
+    const tags = rawTags.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean);
+    const meta = response.meta;
+
+    logger.log(`[${functionName}] AI call successful.`, { tags, modelUsed: meta.modelUsed });
     logger.log(`[${functionName}] Finished execution successfully.`);
-    return { tags: mockTags, meta };
+    return { tags, meta };
 
   } catch (error) {
     logger.error(`[${functionName}] AI call failed.`, error);

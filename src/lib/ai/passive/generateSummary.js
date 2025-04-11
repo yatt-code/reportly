@@ -1,7 +1,6 @@
-import logger from '@/lib/utils/logger'; // Import the logger
-
-// Placeholder for actual AI client (e.g., OpenAI, Anthropic)
-// const aiClient = require('@/lib/ai/client'); // Example
+import logger from '@/lib/utils/logger';
+import { callAI } from '@/lib/ai/providers/aiClient';
+import { selectModel } from '@/lib/ai/providers/modelSelector';
 
 /**
  * Generates a short summary for the given content using an AI model.
@@ -25,31 +24,28 @@ export async function generateSummary(content) {
     return { summary: '', meta: { modelUsed: 'N/A', error: 'Invalid input content' } };
   }
 
-  // --- Placeholder AI Call ---
-  // In a real implementation, you would make an API call here.
-  // Replace this with your actual AI provider logic.
   try {
-    logger.log(`[${functionName}] Attempting AI call (mock)...`);
-    // Example structure for an AI API call (adjust based on your provider)
-    // const response = await aiClient.completions.create({
-    //   model: process.env.AI_SUMMARY_MODEL || "gpt-3.5-turbo", // Use an env var for model
-    //   prompt: `Generate a concise 1-2 sentence summary for the following report content:\n\n${content}`,
-    //   max_tokens: 60,
-    //   temperature: 0.5,
-    // });
-    // const summary = response.choices[0].text.trim();
+    logger.log(`[${functionName}] Attempting AI call...`);
 
-    // --- Mock Response ---
-    await new Promise(resolve => setTimeout(resolve, 50)); // Simulate network delay
-    const summary = `This is a generated summary for the content starting with: "${content.substring(0, 30)}..."`;
-    const meta = {
-      modelUsed: 'mock-model-v1',
-      promptTokens: content.length / 4, // Rough estimate
-      completionTokens: summary.length / 4, // Rough estimate
-      totalTokens: (content.length + summary.length) / 4,
-      cost: 0.0001, // Mock cost
-    };
-    // --- End Mock Response ---
+    // Select the appropriate model for summarization
+    const model = process.env.AI_SUMMARY_MODEL || selectModel({
+      task: 'summarization',
+      quality: 'medium',
+      maxTokens: 100,
+      costSensitive: true
+    });
+
+    // Call the AI with our unified interface
+    const response = await callAI({
+      prompt: `Generate a concise 1-2 sentence summary for the following report content:\n\n${content}`,
+      systemPrompt: "You are a helpful assistant that generates concise, accurate summaries of report content. Your summaries should capture the main points in 1-2 sentences.",
+      model: model,
+      temperature: 0.5,
+      maxTokens: 100
+    });
+
+    const summary = response.content.trim();
+    const meta = response.meta;
 
     logger.log(`[${functionName}] AI call successful.`, { summaryLength: summary.length, modelUsed: meta.modelUsed });
     logger.log(`[${functionName}] Finished execution successfully.`);

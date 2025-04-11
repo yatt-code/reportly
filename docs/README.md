@@ -25,12 +25,15 @@ Welcome to the Reportly documentation. This repository contains comprehensive do
 - [Milestone 6: QA & Final Touches](milestones/m6-qa-final.md) - Quality assurance and final improvements
 - [Milestone 7: Mentions & Notifications](milestones/m7-mentions-notifications.md) - @mentions and notification system
 - [Milestone 8: Organizations & Workspaces](milestones/m8-orgs-workspace.md) - Multi-tenant architecture
+- [Milestone 9: Multiple AI Providers](milestones/m9-ai-providers.md) - Integration of multiple AI providers
 
 ### 🧠 Technical Specifications
 - [Authentication Flow](specifications/auth/auth-flow.md) - User authentication process
 - [RBAC Rules](specifications/auth/rbac-rules.md) - Role-based access control
 - [Editor](specifications/editor/editor.md) - Rich text editor implementation
 - [AI Suggestion Panel](specifications/editor/ai-suggestion-panel.md) - AI-powered content suggestions
+- [AI Providers](specifications/ai/ai-providers.md) - Multiple AI provider integration
+- [OpenRouter Integration](specifications/ai/openrouter-integration.md) - OpenRouter AI provider integration
 - [Comment System](specifications/social/comment-system.md) - Threaded commenting functionality
 - [Mentions](specifications/social/mentions.md) - @mention system
 - [Notifications](specifications/social/notifications.md) - User notification system
@@ -50,6 +53,7 @@ Welcome to the Reportly documentation. This repository contains comprehensive do
 - [Notifications](implementation/changes/notifications.md) - Notification system implementation
 - [Organizations & Workspaces](implementation/changes/orgs-workspace.md) - Multi-tenant implementation details
 - [XP & Levels](implementation/changes/xp-level.md) - XP system implementation details
+- [AI Providers](implementation/changes/ai-providers.md) - Multiple AI provider implementation details
 
 ### 🧪 Testing
 - [Manual Tests](testing/manual-tests/README.md) - Manual testing procedures
@@ -103,6 +107,13 @@ This section organizes documentation by feature area, making it easier to find a
 - [Technical Specification: Report Ownership](specifications/reports/report-ownership.md)
 - [Manual Tests: Dashboard](testing/manual-tests/ui/dashboard-tests.md)
 - [Manual Tests: Theme](testing/manual-tests/ui/theme-tests.md)
+
+### AI Providers
+- [Technical Specification: AI Providers](specifications/ai/ai-providers.md)
+- [Technical Specification: OpenRouter Integration](specifications/ai/openrouter-integration.md)
+- [Implementation: AI Providers](implementation/changes/ai-providers.md)
+- [Manual Tests: AI Providers](testing/manual-tests/editor/ai-providers-test.md)
+- [Milestone: Multiple AI Providers](milestones/m9-ai-providers.md)
 
 ## 🔄 Documentation Conventions
 
