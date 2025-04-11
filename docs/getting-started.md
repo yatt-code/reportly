@@ -207,6 +207,13 @@ git push origin feature/your-feature-name
 - Reinstall dependencies: `npm ci`
 - Check for TypeScript errors: `npm run lint`
 
+### Tailwind CSS Configuration Issues
+
+- **Error: "It looks like you're trying to use `tailwindcss` directly as a PostCSS plugin"**: This occurs when using Tailwind CSS v4 with an outdated configuration. Update your `postcss.config.js` to use `@tailwindcss/postcss` instead of `tailwindcss`.
+- **Error: "Cannot apply unknown utility class"**: This may happen when there's a mismatch between Tailwind CSS versions. Ensure your configuration matches the installed version (v3 or v4).
+- **For Tailwind CSS v3**: Use `tailwindcss` in your PostCSS config and `import('tailwindcss').Config` in your Tailwind config.
+- **For Tailwind CSS v4**: Use `@tailwindcss/postcss` in your PostCSS config and `import('@tailwindcss/postcss').Config` in your Tailwind config.
+
 ## 📚 Additional Resources
 
 - [Project Documentation](./README.md)

@@ -11,7 +11,7 @@ Reportly is built using a modern technology stack that prioritizes developer exp
 | Next.js | 15.x | React framework with server-side rendering |
 | React | 19.x | UI component library |
 | TypeScript | 5.x | Type-safe JavaScript |
-| Tailwind CSS | 3.x | Utility-first CSS framework |
+| Tailwind CSS | 3.x/4.x | Utility-first CSS framework |
 | TipTap | 2.x | Extensible rich text editor |
 | React Hook Form | 7.x | Form handling |
 | Zod | 3.x | Schema validation |
@@ -100,7 +100,8 @@ Reportly is built using a modern technology stack that prioritizes developer exp
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8",
-    "tailwindcss": "^3.3.0",
+    "tailwindcss": "^3.3.0", // For Tailwind CSS v3
+    "@tailwindcss/postcss": "^4.1.3", // For Tailwind CSS v4
     "typescript": "^5"
   }
 }

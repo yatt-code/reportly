@@ -70,6 +70,8 @@ npm run test         # Run tests
 
 For more detailed instructions, see the [full Getting Started guide](./getting-started.md).
 
+For styling and CSS information, see the [Styling Guide](./specifications/ui/styling.md).
+
 ## 🔄 Development Workflow
 
 1. Pull latest changes: `git pull origin main`
@@ -81,4 +83,8 @@ For more detailed instructions, see the [full Getting Started guide](./getting-s
 
 ## 🆘 Need Help?
 
-Check the [Troubleshooting section](./getting-started.md#troubleshooting) in the full guide or reach out to the team.
+Check the following resources:
+
+- [Troubleshooting section](./getting-started.md#troubleshooting) in the full guide
+- [Styling and CSS Troubleshooting](./specifications/ui/styling.md#-common-issues-and-troubleshooting) for CSS-related issues
+- Reach out to the team if you need further assistance
