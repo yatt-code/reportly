@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import connectDB from '@/lib/db/connectDB';
 import CommentModel, { IComment } from '@/models/Comment'; // Use the Mongoose model and interface
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth.server';
 import { checkDeletePermission } from '@/lib/comments/deleteCommentAuth';
 import { CommentIdSchema } from '@/lib/schemas/commentSchemas';
 import logger from '@/lib/utils/logger';

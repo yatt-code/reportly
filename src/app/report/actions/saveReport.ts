@@ -9,7 +9,7 @@ import Report from '@/models/Report'; // Assuming Report model has appropriate t
 import { generateSummary } from '@/lib/ai/passive/generateSummary';
 import { categorizeReport } from '@/lib/ai/passive/categorizeReport';
 import logger from '@/lib/utils/logger';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth.server'; // Import server-side user fetcher
 import { CreateReportSchema, UpdateReportSchema, ReportDocument } from '@/lib/schemas/reportSchemas';
 import { assertOwnership } from '@/lib/utils/assertOwnership'; // Import the utility
 import { checkAchievements } from '@/lib/achievements/checkAchievements';

@@ -5,8 +5,9 @@ import connectDB from '@/lib/db/connectDB';
 import Report from '@/models/Report';
 import User from '@/models/User';
 import logger from '@/lib/utils/logger';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth.server';
 import { getReportsByWorkspace } from './getReportsByWorkspace';
+import type { UserDocument } from '@/lib/schemas/reportSchemas'; // Import UserDocument type
 
 // Define a more specific return type
 // Consider defining a proper Report type based on your model
@@ -40,7 +41,8 @@ export async function getReportsByUser(): Promise<GetReportsByUserResult> {
         logger.log(`[${functionName}] Database connected.`);
 
         // Get the user's profile to find their active workspace
-        const userProfile = await User.findOne({ supabaseUserId: currentUserId }).lean();
+        // Cast the result to UserDocument
+        const userProfile = await User.findOne({ supabaseUserId: currentUserId }).lean() as UserDocument | null;
         if (!userProfile) {
             logger.error(`[${functionName}] User profile not found.`, { userId: currentUserId });
             return { success: false, error: 'User profile not found.' };

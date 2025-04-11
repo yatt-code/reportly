@@ -75,7 +75,7 @@ export const enforceRole = (
 };
 
 // Example Usage in a Server Action:
-// import { getCurrentUser } from '@/lib/auth';
+// import { getCurrentUser } from '@/lib/auth.server'; // Corrected path
 // import { enforceRole } from '@/lib/rbac/utils';
 //
 // export async function someAdminAction(payload: any) {

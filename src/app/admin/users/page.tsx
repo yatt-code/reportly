@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth.server';
 import { hasRole } from '@/lib/rbac/utils'; // Use server-side utility
 import logger from '@/lib/utils/logger';
 

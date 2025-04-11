@@ -4,7 +4,7 @@ import { z } from 'zod';
 import connectDB from '@/lib/db/connectDB';
 import Report from '@/models/Report'; // Assuming Report model has appropriate types
 import logger from '@/lib/utils/logger';
-import { getCurrentUser } from '@/lib/auth'; // Import server-side user fetcher
+import { getCurrentUser } from '@/lib/auth.server'; // Import server-side user fetcher
 import { ReportIdSchema, ReportDocument } from '@/lib/schemas/reportSchemas';
 import { assertOwnership } from '@/lib/utils/assertOwnership'; // Import the utility
 

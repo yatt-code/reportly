@@ -1,3 +1,5 @@
+'use client'; // This layout uses client hooks (usePathname in sidebar)
+
 import React from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import Link from 'next/link';

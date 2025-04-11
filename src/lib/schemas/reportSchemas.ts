@@ -101,6 +101,34 @@ export interface UserDocument {
     role: 'admin' | 'developer';
     achievements?: string[];
     groupId?: string; // Or ObjectId
+    activeWorkspaceId?: string; // Or ObjectId
+    workspaceIds?: string[]; // Or ObjectId[]
+    organizationId?: string; // Or ObjectId - Add the missing field
     createdAt: Date;
     updatedAt: Date;
+}
+
+// Interface representing the structure of an Organization document from MongoDB
+// Adjust based on your actual Mongoose model definition in models/Organization.ts
+export interface OrganizationDocument {
+    _id: string; // Or ObjectId
+    name: string;
+    ownerId: string; // Or ObjectId
+    memberIds?: string[]; // Or ObjectId[]
+    createdAt: Date;
+    updatedAt: Date;
+    // Add other fields like description, settings etc.
+}
+
+// Interface representing the structure of a Workspace document from MongoDB
+// Adjust based on your actual Mongoose model definition in models/Workspace.ts
+export interface WorkspaceDocument {
+    _id: string; // Or ObjectId
+    name: string;
+    organizationId: string; // Matches Workspace.ts
+    type: 'team' | 'department' | 'project'; // Matches Workspace.ts
+    memberIds?: string[];
+    createdAt: Date;
+    updatedAt: Date;
+    // Add other fields if they exist in Workspace.ts
 }

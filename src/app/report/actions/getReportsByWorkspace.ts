@@ -4,7 +4,7 @@ import { z } from 'zod';
 import connectDB from '@/lib/db/connectDB';
 import Report from '@/models/Report';
 import logger from '@/lib/utils/logger';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth.server';
 import { hasWorkspaceAccess } from '@/lib/rbac/workspaceAccess';
 
 // Define Zod schema for input validation

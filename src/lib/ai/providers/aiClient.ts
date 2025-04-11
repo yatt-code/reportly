@@ -57,7 +57,7 @@ export async function callAI({
   prompt,
   systemPrompt = "",
   temperature = 0.7,
-  model = "gpt-4",
+  model = "gpt-4o-mini",
   maxTokens
 }: AICallOptions): Promise<AIResponse> {
   const functionName = 'callAI';
@@ -79,7 +79,7 @@ export async function callAI({
     }
   } catch (error) {
     logger.error(`[${functionName}] AI call failed`, error);
-    throw new Error(`AI call failed: ${error.message}`);
+    throw error instanceof Error ? error : new Error(`AI call failed: ${error}`);
   }
 }
 

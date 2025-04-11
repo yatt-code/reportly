@@ -9,9 +9,11 @@ import { revalidatePath } from 'next/cache';
 // Mock dependencies
 jest.mock('@/lib/db/connectDB', () => jest.fn().mockResolvedValue(true)); // Assume DB connects successfully
 
-// Mock the Report model methods
+// Define mock functions first
 const mockSave = jest.fn();
 const mockFindByIdAndUpdate = jest.fn();
+
+// Mock the Report model methods, using the already defined mocks
 jest.mock('@/models/Report', () => {
   // Mock the constructor and instance methods like save
   const MockReport = jest.fn().mockImplementation(payload => ({

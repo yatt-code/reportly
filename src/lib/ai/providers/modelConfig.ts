@@ -50,6 +50,26 @@ export const openAIModels: Record<string, ModelConfig> = {
       output: 0.002,
     },
   },
+  "gpt-4o-mini": {
+    name: "gpt-4o-mini",
+    provider: "openai",
+    description: "Smaller, faster version of GPT-4o",
+    maxTokens: 128000,
+    costPer1KTokens: {
+      input: 0.0015,
+      output: 0.002,
+    },
+  },
+  "o3-mini": {
+    name: "o3-mini",
+    provider: "openai",
+    description: "OpenAI's o3-mini model",
+    maxTokens: 128000,
+    costPer1KTokens: {
+      input: 0.0015,
+      output: 0.002,
+    },
+  }
 };
 
 /**
@@ -72,6 +92,26 @@ export const openRouterModels: Record<string, ModelConfig> = {
     provider: "openrouter",
     description: "OpenAI's GPT-3.5 Turbo via OpenRouter",
     maxTokens: 16385,
+    costPer1KTokens: {
+      input: 0.0015,
+      output: 0.002,
+    },
+  },
+  "openai/gpt-4o-mini": {
+    name: "openai/gpt-4o-mini",
+    provider: "openrouter",
+    description: "OpenAI's GPT-4o-mini via OpenRouter",
+    maxTokens: 128000,
+    costPer1KTokens: {
+      input: 0.0015,
+      output: 0.002,
+    },
+  },
+  "openai/o3-mini": {
+    name: "openai/o3-mini",
+    provider: "openrouter",
+    description: "OpenAI's o3-mini via OpenRouter",
+    maxTokens: 128000,
     costPer1KTokens: {
       input: 0.0015,
       output: 0.002,
@@ -107,6 +147,16 @@ export const openRouterModels: Record<string, ModelConfig> = {
       output: 0.00375,
     },
   },
+  "google/gemini-2.0-flash-001": {
+    name: "google/gemini-2.0-flash-001",
+    provider: "openrouter",
+    description: "Google's Gemini 2.0 Flash model",
+    maxTokens: 128000,
+    costPer1KTokens: {
+      input: 0.0015,
+      output: 0.002,
+    },
+  }
 };
 
 /**
@@ -116,6 +166,8 @@ export const openAIToOpenRouterModelMap: Record<string, string> = {
   "gpt-4": "openai/gpt-4-turbo",
   "gpt-4-turbo": "openai/gpt-4-turbo",
   "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
+  "gpt-4o-mini": "openai/gpt-4o-mini",
+  "o3-mini": "openai/o3-mini"
 };
 
 /**

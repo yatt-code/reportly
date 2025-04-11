@@ -4,7 +4,7 @@ import { z } from 'zod';
 import connectDB from '@/lib/db/connectDB';
 import CommentModel, { IComment } from '@/models/Comment'; // Import interface too
 import ReportModel from '@/models/Report'; // Needed for access check
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth.server';
 import { PostCommentSchema, PostCommentInput } from '@/lib/schemas/commentSchemas';
 import { ReportDocument } from '@/lib/schemas/reportSchemas';
 import logger from '@/lib/utils/logger';

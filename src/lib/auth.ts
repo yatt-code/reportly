@@ -1,9 +1,9 @@
-import { cookies } from 'next/headers'; // Needed for server-side client
-import { createServerClient } from '@supabase/ssr'; // Import server client creator
-import { getSupabaseClient } from './supabaseClient'; // Keep for client-side helpers
+// This file contains CLIENT-SIDE callable auth helpers
+
+import { getSupabaseClient } from './supabaseClient'; // Use client-side helper
 import { z } from 'zod';
 import logger from '@/lib/utils/logger';
-import type { User } from '@supabase/supabase-js'; // Import User type
+// Removed server-only imports: cookies, createServerClient, User type (if only used by getCurrentUser)
 
 // --- Zod Schemas for Auth ---
 const AuthCredentialsSchema = z.object({
@@ -124,67 +124,5 @@ export const logout = async () => {
          return { error: { message: 'An unexpected error occurred during logout.' } };
     }
 };
-
-/**
- * Retrieves the current authenticated user's data in a server-side context
- * (Server Component, Server Action, Route Handler).
- * Reads session from cookies.
- *
- * @returns {Promise<User | null>} The Supabase user object or null if not authenticated.
- */
-export const getCurrentUser = async (): Promise<User | null> => {
-    const functionName = 'auth.getCurrentUser';
-    // Create a Supabase client FOR SERVER-SIDE USE configured to use cookies
-    const cookieStore = cookies();
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-     if (!supabaseUrl || !supabaseAnonKey) {
-        logger.error(`[${functionName}] Missing Supabase URL or Anon Key.`);
-        // Depending on context, might return null or throw
-        return null;
-    }
-
-    const supabase = createServerClient(
-        supabaseUrl,
-        supabaseAnonKey,
-        {
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value;
-                },
-                // Set/Remove are not typically needed for just getting the user,
-                // but included here based on the standard pattern.
-                // They might cause warnings if called from Server Components.
-                set(name: string, value: string, options) {
-                    try { cookieStore.set({ name, value, ...options }); } catch (e) { /* Ignored */ }
-                },
-                remove(name: string, options) {
-                     try { cookieStore.set({ name, value: '', ...options }); } catch(e) { /* Ignored */ }
-                },
-            },
-        }
-    );
-
-    try {
-        // Use getUser() which checks the cookie-based session
-        const { data: { user }, error } = await supabase.auth.getUser();
-
-        if (error) {
-            logger.error(`[${functionName}] Error getting user from session.`, error);
-            return null;
-        }
-
-        if (user) {
-             logger.log(`[${functionName}] User found in session.`, { userId: user.id });
-        } else {
-             logger.log(`[${functionName}] No user found in session.`);
-        }
-        return user;
-
-    } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        logger.error(`[${functionName}] Exception during getUser call.`, error);
-        return null;
-    }
-};
+// Removed getCurrentUser function - moved to auth.server.ts
+// Ensure no stray characters remain

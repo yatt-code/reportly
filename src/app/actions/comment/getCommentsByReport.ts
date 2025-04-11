@@ -4,7 +4,7 @@ import { z } from 'zod';
 import connectDB from '@/lib/db/connectDB';
 import CommentModel from '@/models/Comment'; // Use the Mongoose model
 import ReportModel from '@/models/Report'; // Needed for access check
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth.server';
 import { ReportIdSchema } from '@/lib/schemas/commentSchemas'; // Use schema from comment schemas
 import { ReportDocument } from '@/lib/schemas/reportSchemas'; // Import Report type
 import logger from '@/lib/utils/logger';

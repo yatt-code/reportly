@@ -1,38 +1,51 @@
-// Mock TextEncoder and TextDecoder for MongoDB
-global.TextEncoder = require('util').TextEncoder;
-global.TextDecoder = require('util').TextDecoder;
+// This file runs before each test suite after the environment is set up.
+// Use it for global mocks or setup tasks.
 
-// Import Jest DOM extensions
-require('@testing-library/jest-dom');
+// Mock the server-side auth helper globally
+jest.mock('@/lib/auth.server', () => ({
+  // Default mock implementation (returns null, meaning unauthenticated)
+  getCurrentUser: jest.fn().mockResolvedValue(null),
+}));
 
-// Mock next/navigation
+// Mock the client-side auth helper globally (if needed by components)
+jest.mock('@/lib/auth', () => ({
+    login: jest.fn(),
+    register: jest.fn(),
+    logout: jest.fn(),
+}));
+
+// Mock logger globally
+jest.mock('@/lib/utils/logger', () => ({
+  log: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+}));
+
+// Mock next/navigation globally (for hooks like useRouter, usePathname)
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
     replace: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
     refresh: jest.fn(),
-    prefetch: jest.fn(),
+    // Add other methods if needed by tests
   }),
-  usePathname: () => '/mock-path',
-  useSearchParams: () => new URLSearchParams(),
+  usePathname: jest.fn(() => '/mock-path'), // Default mock path
+  redirect: jest.fn((url) => { throw new Error(`REDIRECT_CALLED_WITH: ${url}`) }), // Mock redirect to check calls
+  notFound: jest.fn(() => { throw new Error('NOT_FOUND_CALLED') }), // Mock notFound
 }));
 
-// Mock server actions
-jest.mock('next/headers', () => ({
-  cookies: () => ({
-    get: jest.fn().mockReturnValue({ value: 'mock-cookie-value' }),
-    getAll: jest.fn().mockReturnValue([]),
-    set: jest.fn(),
-    delete: jest.fn(),
-  }),
-  headers: () => ({
-    get: jest.fn(),
-    has: jest.fn(),
-    entries: jest.fn(),
-    values: jest.fn(),
-    keys: jest.fn(),
-    forEach: jest.fn(),
-  }),
+// Mock next/cache globally
+jest.mock('next/cache', () => ({
+    revalidatePath: jest.fn(),
 }));
+
+// Mock react-hot-toast
+jest.mock('react-hot-toast', () => ({
+    success: jest.fn(),
+    error: jest.fn(),
+    loading: jest.fn(),
+    dismiss: jest.fn(),
+    custom: jest.fn(),
+}));
+
+// Add any other global mocks here

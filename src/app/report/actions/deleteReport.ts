@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import connectDB from '@/lib/db/connectDB';
 import Report from '@/models/Report';
 import logger from '@/lib/utils/logger';
-import { getCurrentUser } from '@/lib/auth'; // Import server-side user fetcher
+import { getCurrentUser } from '@/lib/auth.server'; // Import server-side user fetcher
 import { ReportIdSchema } from '@/lib/schemas/reportSchemas';
 // Removed assertOwnership import
 import { enforceRole } from '@/lib/rbac/utils'; // Import enforceRole utility

@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth.server';
 import connectDB from '@/lib/db/connectDB';
 import User from '@/models/User';
 import { Organization } from '@/models/Organization';

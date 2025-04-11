@@ -13,18 +13,26 @@ class MockNextResponse {
   }
 }
 
-// Mock the imports
-jest.mock('next/server', () => ({
-  NextRequest: MockNextRequest,
-  NextResponse: MockNextResponse,
-}));
+// Moved jest.mock down
 
 import { GET } from '@/app/api/users-in-group/route';
 import connectDB from '@/lib/db/connectDB';
 import UserModel from '@/models/User';
 import logger from '@/lib/utils/logger';
 
+// Explicitly map aliases within mocks as a potential workaround
+jest.mock('@/lib/db/connectDB', () => jest.fn(), { virtual: true });
+jest.mock('@/models/User', () => ({ findOne: jest.fn(), find: jest.fn() }), { virtual: true });
+jest.mock('@/lib/utils/logger', () => ({ log: jest.fn(), warn: jest.fn(), error: jest.fn() }), { virtual: true });
+jest.mock('@supabase/ssr', () => ({ createServerClient: jest.fn(() => ({ auth: { getUser: jest.fn() } })) }), { virtual: true });
+jest.mock('next/headers', () => ({ cookies: jest.fn(() => ({ get: jest.fn() })) }), { virtual: true });
+
 // Mock dependencies
+// Mock next/server AFTER defining the mock classes
+jest.mock('next/server', () => ({
+  NextRequest: MockNextRequest,
+  NextResponse: MockNextResponse,
+}));
 jest.mock('next/headers', () => ({
   cookies: jest.fn().mockReturnValue({
     get: jest.fn().mockReturnValue({ value: 'mock-cookie' }),

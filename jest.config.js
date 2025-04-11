@@ -13,15 +13,32 @@ const customJestConfig = {
   // if using TypeScript with a baseUrl set to the root directory then you need the below for alias' to work
   moduleDirectories: ['node_modules', '<rootDir>/'],
   testEnvironment: 'jest-environment-jsdom', // Use jsdom environment for React components/hooks if needed
-  preset: 'ts-jest', // Use ts-jest preset
+  preset: 'ts-jest',
+  // Explicitly tell ts-jest to use tsconfig paths
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        // Allow js file imports
+        allowJs: true,
+        // Map paths from tsconfig
+        paths: {
+          '@/*': ['./src/*']
+        }
+      },
+    }
+  },
   moduleNameMapper: {
     // Handle module aliases (this should match your tsconfig.json paths)
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  // Ignore node_modules, except for specific ones if needed for transforms
+  // Updated transformIgnorePatterns to explicitly allow known ESM packages
+  // More explicit pattern to allow transforming specific ESM modules
   transformIgnorePatterns: [
-    '/node_modules/',
-    '^.+\\.module\\.(css|sass|scss)$',
+    "/node_modules/(?!(" +
+      "lowlight|unist-util-visit|unist-util-is|react-mentions|@supabase/ssr|mermaid" +
+      // Add other known ESM packages here, separated by |
+    "))/",
+    "^.+\\.module\\.(css|sass|scss)$",
   ],
   // Automatically clear mock calls, instances and results before every test
   clearMocks: true,
