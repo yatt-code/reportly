@@ -80,6 +80,12 @@ npm run test:e2e
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [OpenAI](https://openai.com/) - AI integration
 
+## 👨‍💻 Author
+
+This project was developed by:
+
+**Yatt-code (Aiyad)** - *Sole Human Developer* - [GitHub Profile](https://github.com/yatt-code)
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -87,5 +93,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - All the open-source projects that made this possible
-- The development team for their hard work and dedication
+- Our AI collaborators (see [AI Collaboration](docs/project/ai-collaboration.md))
 - Our early users for their valuable feedback
