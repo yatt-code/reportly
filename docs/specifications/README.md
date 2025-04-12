@@ -20,6 +20,7 @@ This directory contains detailed technical specifications for various features a
 ### UI Components
 - [Dashboard](ui/dashboard.md) - User dashboard design and functionality
 - [Styling](ui/styling.md) - CSS and Tailwind CSS configuration
+- [Demo Mode](ui/demo-mode.md) - No-login demo experience
 
 ### Reports
 - [Report Container](reports/report-container.md) - Report display and management

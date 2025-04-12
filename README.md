@@ -79,6 +79,7 @@ npm run test:e2e
 - [TipTap](https://tiptap.dev/) - Rich text editor
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [OpenAI](https://openai.com/) - AI integration
+- [OpenRouter](https://openrouter.ai/) - AI provider alternative
 
 ## 👨‍💻 Author
 

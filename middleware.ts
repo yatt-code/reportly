@@ -73,8 +73,11 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
-    // If user is NOT authenticated and tries to access a protected route, redirect to login
-    if (!isAuthenticated && protectedRoutes.some(route => pathname.startsWith(route))) {
+    // Check if user is in demo mode (using a cookie)
+    const isDemoMode = request.cookies.get('reportly_demo_mode')?.value === 'true';
+
+    // If user is NOT authenticated and NOT in demo mode and tries to access a protected route, redirect to login
+    if (!isAuthenticated && !isDemoMode && protectedRoutes.some(route => pathname.startsWith(route))) {
          logger.log('[Middleware] Unauthenticated user accessing protected route, redirecting to login.');
          return NextResponse.redirect(new URL('/login', request.url));
     }

@@ -5,6 +5,7 @@ import NewReportButton from '@/components/dashboard/NewReportButton'; // Import 
 import ActivityStats from '@/components/dashboard/ActivityStats';
 import WeeklyActivityHeatmap from '@/components/dashboard/WeeklyActivityHeatmap';
 import ReportList from '@/components/dashboard/ReportList';
+import DemoModeIndicator from '@/components/demo/DemoModeIndicator'; // Import DemoModeIndicator
 import { getMockActivityStats, getMockWeeklyHeatmapData } from '@/lib/mockData'; // Keep for stats/heatmap
 import { getReportsByUser } from '@/app/report/actions/getReportsByUser'; // Import server action
 import logger from '@/lib/utils/logger'; // For logging potential errors
@@ -48,6 +49,9 @@ const DashboardPage = async () => {
     return (
         <div className="container mx-auto px-4 py-8 relative">
             <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+
+            {/* Demo Mode Indicator */}
+            <DemoModeIndicator />
 
             {/* Activity Stats */}
             <ActivityStats stats={activityStats} />
