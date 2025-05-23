@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import type { CommentData } from '@/lib/schemas/commentSchemas';
 import { useUser } from '@/lib/useUser'; // To check ownership/admin
+import { useDemo } from '@/contexts/DemoContext'; // Import useDemo
 import { useHasRole } from '@/lib/rbac'; // Use barrel file import
 import { deleteComment } from '@/app/actions/comment/deleteComment';
 import logger from '@/lib/utils/logger';
@@ -45,30 +46,54 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, depth, onDelete, onR
     const isAdmin = useHasRole('admin');
     const [isDeleting, setIsDeleting] = useState(false);
     const [showReplyForm, setShowReplyForm] = useState(false);
+    const demoContext = useDemo(); // Get demo context
 
-    const isOwner = currentUser?.id === comment.userId;
+    const isOwner = demoContext.isDemoMode ? currentUser?.id === demoContext.demoUser.id : currentUser?.id === comment.userId;
     const canDelete = isOwner || isAdmin;
 
     const handleDelete = async () => {
         setIsDeleting(true);
         const toastId = toast.loading('Deleting comment...');
-        logger.log('[CommentItem] Deleting comment...', { commentId: comment._id });
-        try {
-            const result = await deleteComment(comment._id);
-            if (result.success) {
-                toast.success('Comment deleted.', { id: toastId });
-                logger.log('[CommentItem] Comment deleted successfully.', { commentId: comment._id });
-                onDelete(comment._id); // Notify parent
-            } else {
-                throw new Error(result.error || 'Failed to delete comment.');
+
+        if (demoContext.isDemoMode) {
+            logger.log('[CommentItem] Deleting comment in demo mode...', { commentId: comment._id });
+            try {
+                // Simulate async operation for demo mode
+                await new Promise(resolve => setTimeout(resolve, 300));
+                const success = demoContext.deleteDemoComment(comment._id);
+                if (success) {
+                    toast.success('Demo comment deleted.', { id: toastId });
+                    logger.log('[CommentItem] Demo comment deleted successfully.', { commentId: comment._id });
+                    onDelete(comment._id); // Notify parent for optimistic UI update
+                } else {
+                    throw new Error('Failed to delete demo comment.');
+                }
+            } catch (err) {
+                const error = err instanceof Error ? err : new Error(String(err));
+                logger.error('[CommentItem] Error deleting demo comment.', { commentId: comment._id, error });
+                toast.error(`Error: ${error.message}`, { id: toastId });
+                setIsDeleting(false); // Reset on error
             }
-        } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
-            logger.error('[CommentItem] Error deleting comment.', { commentId: comment._id, error });
-            toast.error(`Error: ${error.message}`, { id: toastId });
-            setIsDeleting(false); // Only reset on error
+            // No finally needed if onDelete removes component, otherwise setIsDeleting(false) here
+        } else {
+            logger.log('[CommentItem] Deleting comment (live mode)...', { commentId: comment._id });
+            try {
+                const result = await deleteComment(comment._id);
+                if (result.success) {
+                    toast.success('Comment deleted.', { id: toastId });
+                    logger.log('[CommentItem] Comment deleted successfully.', { commentId: comment._id });
+                    onDelete(comment._id); // Notify parent
+                } else {
+                    throw new Error(result.error || 'Failed to delete comment.');
+                }
+            } catch (err) {
+                const error = err instanceof Error ? err : new Error(String(err));
+                logger.error('[CommentItem] Error deleting comment.', { commentId: comment._id, error });
+                toast.error(`Error: ${error.message}`, { id: toastId });
+                setIsDeleting(false); // Only reset on error
+            }
+            // No finally block needed if onDelete removes the component
         }
-        // No finally block needed if onDelete removes the component
     };
 
     const handleReplySuccess = (newReply: CommentData) => {
@@ -79,13 +104,25 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, depth, onDelete, onR
     // Basic indentation based on depth
     const indentationStyle = { marginLeft: `${depth * 1.5}rem` }; // Adjust multiplier as needed
 
+    // Determine user details based on demo mode
+    // The `comment` prop might not have `user.name` or `user.avatarUrl` if it's a raw `DemoComment`
+    // that hasn't been merged/populated with user details from `DemoUser` yet.
+    // However, `DemoComment` itself has `userDisplayName` and `userAvatarUrl`.
+    const displayName = demoContext.isDemoMode
+        ? (comment as any).userDisplayName || demoContext.demoUser.displayName // Fallback for safety
+        : comment.user?.name || `User ${comment.userId.substring(0, 6)}`;
+    const avatarUrl = demoContext.isDemoMode
+        ? (comment as any).userAvatarUrl || demoContext.demoUser.avatarUrl // Fallback for safety
+        : comment.user?.avatarUrl;
+
+
     return (
         <div className={`comment-item py-3 ${depth > 0 ? 'border-t border-gray-200 dark:border-gray-700' : ''}`} style={indentationStyle} role="comment" aria-labelledby={`comment-author-${comment._id}`}>
             <div className="flex items-start space-x-3">
                 {/* Avatar Placeholder */}
                 <div className="flex-shrink-0">
-                    {comment.user?.avatarUrl ? (
-                        <img src={comment.user.avatarUrl} alt={comment.user.name || 'User'} className="h-8 w-8 rounded-full" />
+                    {avatarUrl ? (
+                        <img src={avatarUrl} alt={displayName} className="h-8 w-8 rounded-full" />
                     ) : (
                         <UserCircle className="h-8 w-8 text-gray-400 dark:text-gray-500" />
                     )}
@@ -95,7 +132,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, depth, onDelete, onR
                     {/* Author and Timestamp */}
                     <div className="text-sm flex items-center space-x-2">
                         <span id={`comment-author-${comment._id}`} className="font-semibold text-gray-900 dark:text-white">
-                            {comment.user?.name || `User ${comment.userId.substring(0, 6)}`}
+                            {displayName}
                         </span>
                         {/* Use semantic <time> element */}
                         <time dateTime={comment.createdAt} className="text-gray-500 dark:text-gray-400 text-xs" title={new Date(comment.createdAt).toLocaleString()}>

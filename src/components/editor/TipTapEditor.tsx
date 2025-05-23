@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { EditorContent, Editor } from '@tiptap/react';
+import EditorToolbar from './EditorToolbar';
 // Removed imports for hooks and extensions as they will be managed by the parent
 // import StarterKit from '@tiptap/starter-kit';
 // import Placeholder from '@tiptap/extension-placeholder';
@@ -57,7 +58,7 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({ editor }) => {
         <div className="report-editor border border-gray-300 dark:border-gray-700 rounded-md">
             {/* Optional Toolbar */}
             {/* Toolbar could also be passed the editor instance if needed */}
-            {/* <EditorToolbar editor={editor} /> */}
+            <EditorToolbar editor={editor} />
             <EditorContent editor={editor} />
             {/* AI Suggestions display logic is handled by the parent */}
         </div>

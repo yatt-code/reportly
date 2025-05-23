@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { postComment } from '@/app/actions/comment/postComment';
 import type { CommentData } from '@/lib/schemas/commentSchemas'; // Import frontend type
+import { useDemo } from '@/contexts/DemoContext'; // Import useDemo
 import logger from '@/lib/utils/logger';
 import toast from 'react-hot-toast';
 import { Loader2, Send } from 'lucide-react';
@@ -29,6 +30,7 @@ const CommentForm: React.FC<CommentFormProps> = ({
 }) => {
     const [content, setContent] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const demoContext = useDemo(); // Get demo context
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -39,47 +41,71 @@ const CommentForm: React.FC<CommentFormProps> = ({
 
         setIsLoading(true);
         const toastId = toast.loading(parentId ? 'Posting reply...' : 'Posting comment...');
-        logger.log('[CommentForm] Posting comment...', { reportId, parentId, contentLength: content.length });
 
-        try {
-            const result = await postComment({
-                reportId,
-                content: content.trim(),
-                parentId,
-                // TODO: Add mention parsing/extraction logic here if needed
-                // mentions: extractMentions(content),
-            });
+        if (demoContext.isDemoMode) {
+            logger.log('[CommentForm] Posting comment in demo mode...', { reportId, parentId, contentLength: content.length });
+            try {
+                // Simulate async operation for demo mode
+                await new Promise(resolve => setTimeout(resolve, 500));
 
-            if (result.success && result.comment) {
-                logger.log('[CommentForm] Comment posted successfully.', { commentId: result.comment._id });
-                toast.success(parentId ? 'Reply posted!' : 'Comment posted!', { id: toastId });
+                const newDemoComment = demoContext.addDemoComment({
+                    reportId,
+                    content: content.trim(),
+                    parentId,
+                    // userId is handled by addDemoComment using demoUser from context
+                    // userDisplayName and userAvatarUrl are also handled by addDemoComment
+                });
 
-                // Check if any achievements were unlocked
-                if (result.unlocked && result.unlocked.length > 0) {
-                    logger.log('[CommentForm] Achievements unlocked:', { achievements: result.unlocked });
-                    // Show achievement toasts
-                    showAchievementToasts(result.unlocked);
-                }
-
-                // Call onSuccess callback with the new comment data (needs mapping if types differ)
-                // Assuming server action returns data compatible with CommentData for now
-                onSuccess(result.comment as CommentData);
-                setContent(''); // Clear the form
+                logger.log('[CommentForm] Demo comment posted successfully.', { commentId: newDemoComment._id });
+                toast.success(parentId ? 'Demo reply posted!' : 'Demo comment posted!', { id: toastId });
+                onSuccess(newDemoComment as unknown as CommentData); // Cast to CommentData, ensure fields align
+                setContent('');
                 if (parentId && onCancel) {
-                    onCancel(); // Close reply form after success
+                    onCancel();
                 }
-            } else if (!result.success) { // Check failure case before accessing error
-                throw new Error(result.error || 'Failed to post comment.');
-            } else {
-                // Should not happen if success is true but comment is missing
-                throw new Error('Comment posted but no data returned.');
+            } catch (err) {
+                const error = err instanceof Error ? err : new Error(String(err));
+                logger.error('[CommentForm] Error posting demo comment.', error);
+                toast.error(`Error: ${error.message}`, { id: toastId });
+            } finally {
+                setIsLoading(false);
             }
-        } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
-            logger.error('[CommentForm] Error posting comment.', error);
-            toast.error(`Error: ${error.message}`, { id: toastId });
-        } finally {
-            setIsLoading(false);
+        } else {
+            logger.log('[CommentForm] Posting comment (live mode)...', { reportId, parentId, contentLength: content.length });
+            try {
+                const result = await postComment({
+                    reportId,
+                    content: content.trim(),
+                    parentId,
+                    // mentions: extractMentions(content), // TODO: ensure this is handled if needed
+                });
+
+                if (result.success && result.comment) {
+                    logger.log('[CommentForm] Comment posted successfully.', { commentId: result.comment._id });
+                    toast.success(parentId ? 'Reply posted!' : 'Comment posted!', { id: toastId });
+
+                    if (result.unlocked && result.unlocked.length > 0) {
+                        logger.log('[CommentForm] Achievements unlocked:', { achievements: result.unlocked });
+                        showAchievementToasts(result.unlocked);
+                    }
+
+                    onSuccess(result.comment as CommentData);
+                    setContent('');
+                    if (parentId && onCancel) {
+                        onCancel();
+                    }
+                } else if (!result.success) {
+                    throw new Error(result.error || 'Failed to post comment.');
+                } else {
+                    throw new Error('Comment posted but no data returned.');
+                }
+            } catch (err) {
+                const error = err instanceof Error ? err : new Error(String(err));
+                logger.error('[CommentForm] Error posting comment.', error);
+                toast.error(`Error: ${error.message}`, { id: toastId });
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 

@@ -11,6 +11,8 @@ export const CreateReportSchema = z.object({
     content: z.string().min(1, 'Content cannot be empty'), // Basic check, could add more rules
     userId: objectIdSchema, // Should be validated/set server-side based on auth
     groupId: objectIdSchema, // Should be validated/set server-side based on auth or user profile
+    tags: z.array(z.string().trim()).optional(),
+    status: z.enum(['draft', 'published', 'archived']).optional(),
 });
 
 // Schema for updating a report (used within saveReport and updateReport)
@@ -18,6 +20,8 @@ export const UpdateReportSchema = z.object({
     reportId: objectIdSchema,
     title: z.string().min(3, 'Title must be at least 3 characters long').trim().optional(), // Allow partial updates
     content: z.string().min(1, 'Content cannot be empty').optional(), // Allow partial updates
+    tags: z.array(z.string().trim()).optional(),
+    status: z.enum(['draft', 'published', 'archived']).optional(),
     // userId and groupId typically shouldn't be updatable directly here
 });
 
@@ -54,6 +58,8 @@ export interface ReportDocument {
     content: string;
     userId: string; // Or ObjectId
     groupId: string; // Or ObjectId
+    tags?: string[]; // Added tags
+    status?: 'draft' | 'published' | 'archived'; // Added status
     createdAt: Date;
     updatedAt: Date;
     ai_summary?: string;

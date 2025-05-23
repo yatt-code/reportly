@@ -61,7 +61,8 @@ export async function saveReport(reportData: SaveReportInput): Promise<SaveRepor
   const validatedData = validationResult.data;
   // Destructure needed fields AFTER validation
   // Don't destructure userId/groupId from client input for security
-  const { title, content } = validatedData as any;
+  // Type assertion to help TypeScript, assuming CreateReportSchema and UpdateReportSchema include these
+  const { title, content, tags, status } = validatedData as any;
 
   try {
     logger.log('Connecting to database...');
@@ -153,8 +154,10 @@ export async function saveReport(reportData: SaveReportInput): Promise<SaveRepor
     // Build the payload carefully based on operation type
     const reportPayload: any = { // Use 'any' temporarily, refine with proper type/interface
       // Fields common to both create and update (if present in validatedData)
-      ...(validatedData.title && { title: validatedData.title }),
-      ...(validatedData.content && { content: validatedData.content }),
+      ...(title && { title }), // Use destructured title
+      ...(content && { content }), // Use destructured content
+      ...(tags && { tags }), // Add tags if present
+      ...(status && { status }), // Add status if present
       // AI fields are always added/updated
       ai_summary: aiSummary, // Save the generated summary
       ai_tags: aiTags, // Save the generated tags
