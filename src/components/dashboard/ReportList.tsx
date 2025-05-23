@@ -12,6 +12,7 @@ import logger from '@/lib/utils/logger'; // For logging actions
 import { deleteReport } from '@/app/report/actions/deleteReport';
 import { duplicateReport } from '@/app/report/actions/duplicateReport';
 import toast from 'react-hot-toast';
+import { useDemo } from '@/contexts/DemoContext';
 
 const INITIAL_REPORT_COUNT = 5;
 const REPORTS_PER_LOAD = 10; // Load 10 more each time
@@ -58,14 +59,32 @@ const ReportList: React.FC<ReportListProps> = ({ initialReports = [] }) => {
 
     // Removed loadMoreReports - parent component should handle fetching/pagination
 
+    // Get demo context
+    const { isDemoMode, deleteDemoReport } = useDemo();
+
     // Callback for handling deletion from a list item
     const handleDeleteReport = useCallback((reportIdToDelete: string) => {
         // Optimistically remove the report from the UI
         // Filter using the consistent 'id' field
         setReports(currentReports => currentReports.filter(report => report.id !== reportIdToDelete));
         logger.log('[ReportList] Report removed from local state.', { reportIdToDelete });
-        // Note: Server action `deleteReport` handles actual deletion and toast notifications
-    }, []);
+
+        // If in demo mode, use the demo context to delete the report
+        if (isDemoMode) {
+            try {
+                const success = deleteDemoReport(reportIdToDelete);
+                if (success) {
+                    toast.success('Report deleted successfully');
+                } else {
+                    toast.error('Failed to delete report');
+                }
+            } catch (error) {
+                logger.error('[ReportList] Error deleting demo report:', error);
+                toast.error('Failed to delete report');
+            }
+        }
+        // Note: Server action `deleteReport` handles actual deletion and toast notifications for non-demo mode
+    }, [isDemoMode, deleteDemoReport]);
 
     // Callback for handling duplication from a list item
     // Callback now receives ReportListItemData from the child component
@@ -73,7 +92,7 @@ const ReportList: React.FC<ReportListProps> = ({ initialReports = [] }) => {
         // Optimistically add the new report data (already mapped) to the UI
         setReports(currentReports => [newListItemData, ...currentReports]);
         logger.log('[ReportList] Duplicated report added to local state.', { newReportId: newListItemData.id });
-        // Note: Server action `duplicateReport` handles actual creation and toast notifications
+        // Note: Server action `duplicateReport` handles actual creation and toast notifications for non-demo mode
     }, []); // Empty dependency array
 
     return (

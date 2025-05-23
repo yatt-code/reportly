@@ -53,6 +53,7 @@ interface DemoContextType {
   addDemoReport: (report: Partial<DemoReport>) => DemoReport;
   updateDemoReport: (reportId: string, updates: Partial<DemoReport>) => DemoReport | null;
   deleteDemoReport: (reportId: string) => boolean;
+  duplicateDemoReport: (reportId: string) => DemoReport | null;
   getDemoReport: (reportId: string) => DemoReport | null;
   addDemoComment: (comment: Partial<DemoComment>) => DemoComment;
   getDemoComments: (reportId: string) => DemoComment[];
@@ -315,6 +316,32 @@ export const DemoProvider: React.FC<DemoProviderProps> = ({ children }) => {
     return demoReports.find(r => r._id === reportId) || null;
   };
 
+  // Duplicate a demo report
+  const duplicateDemoReport = (reportId: string): DemoReport | null => {
+    const originalReport = getDemoReport(reportId);
+    if (!originalReport) return null;
+
+    const now = new Date();
+    const newReport: DemoReport = {
+      _id: uuidv4(),
+      title: `${originalReport.title} (Copy)`,
+      content: originalReport.content,
+      userId: DEMO_USER.id,
+      workspaceId: originalReport.workspaceId,
+      organizationId: originalReport.organizationId,
+      status: 'draft', // Always start as draft
+      tags: [...originalReport.tags],
+      sentimentTags: [...originalReport.sentimentTags],
+      ai_tags: originalReport.ai_tags ? [...originalReport.ai_tags] : [],
+      ai_summary: originalReport.ai_summary,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setDemoReports(prevReports => [newReport, ...prevReports]);
+    return newReport;
+  };
+
   // Add a new demo comment
   const addDemoComment = (comment: Partial<DemoComment>): DemoComment => {
     const now = new Date();
@@ -403,6 +430,7 @@ export const DemoProvider: React.FC<DemoProviderProps> = ({ children }) => {
     addDemoReport,
     updateDemoReport,
     deleteDemoReport,
+    duplicateDemoReport,
     getDemoReport,
     addDemoComment,
     getDemoComments,

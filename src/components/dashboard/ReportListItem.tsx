@@ -14,7 +14,8 @@ import { duplicateReport } from '@/app/report/actions/duplicateReport';
 // import { generateShareLink } from '@/app/report/actions/generateShareLink';
 import logger from '@/lib/utils/logger';
 import { useUser } from '@/lib/useUser'; // Import useUser to get current user ID
-import { useHasRole } from '@/lib/rbac/hooks'; // Import role checking hook
+import { useHasRole } from '@/lib/rbac/hooks'; // Import role checking
+import { useDemo } from '@/contexts/DemoContext'; // For demo mode hook
 
 interface ReportListItemProps {
     report: ReportListItemData; // Use the specific data type
@@ -29,6 +30,7 @@ interface ReportListItemProps {
 const ReportListItem: React.FC<ReportListItemProps> = ({ report, onDelete, onDuplicate }) => {
     const { user } = useUser(); // Get current user
     const isAdmin = useHasRole('admin'); // Check if user is admin
+    const { isDemoMode, duplicateDemoReport } = useDemo(); // Check if in demo mode and get duplicateDemoReport function
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDuplicating, setIsDuplicating] = useState(false);
     const [isPinned, setIsPinned] = useState(false); // Mock pinned state
@@ -56,13 +58,23 @@ const ReportListItem: React.FC<ReportListItemProps> = ({ report, onDelete, onDup
         const toastId = toast.loading('Deleting report...');
 
         try {
-            const result = await deleteReport(report.id);
-            if (result.success) {
+            // In demo mode, we don't need to call the server action
+            // The parent component will handle the deletion through the demo context
+            if (isDemoMode) {
+                // Just notify the parent to handle the deletion
+                onDelete(report.id);
                 toast.success('Report deleted successfully!', { id: toastId });
-                logger.log('[ReportListItem] Report deleted successfully.', { id: report.id });
-                onDelete(report.id); // Notify parent to remove from list
+                logger.log('[ReportListItem] Demo report deleted successfully.', { id: report.id });
             } else {
-                throw new Error(result.error || 'Failed to delete report.');
+                // In regular mode, call the server action
+                const result = await deleteReport(report.id);
+                if (result.success) {
+                    toast.success('Report deleted successfully!', { id: toastId });
+                    logger.log('[ReportListItem] Report deleted successfully.', { id: report.id });
+                    onDelete(report.id); // Notify parent to remove from list
+                } else {
+                    throw new Error(result.error || 'Failed to delete report.');
+                }
             }
         } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
@@ -79,26 +91,54 @@ const ReportListItem: React.FC<ReportListItemProps> = ({ report, onDelete, onDup
         const toastId = toast.loading('Duplicating report...');
 
         try {
-            // The server action now gets the user ID from the session
-            const result = await duplicateReport(report.id);
-            if (result.success && result.newReport) {
-                toast.success('Report duplicated successfully!', { id: toastId });
-                logger.log('[ReportListItem] Report duplicated successfully.', { oldId: report.id, newId: result.newReport._id });
-                // Map the duplicated report (which might be a full ReportDocument)
-                // to the ReportListItemData structure needed by the parent list
-                const newListItemData: ReportListItemData = {
-                    id: result.newReport._id, // Use consistent 'id'
-                    title: result.newReport.title,
-                    status: 'Draft', // Assume draft status
-                    createdAt: new Date(result.newReport.createdAt),
-                    sentimentTags: [], // Assume no tags initially
-                };
-                onDuplicate(newListItemData); // Notify parent with the correct type
-            } else if (!result.success) { // Check if the operation failed before accessing error
-                throw new Error(result.error || 'Failed to duplicate report.');
+            // Check if in demo mode
+            if (isDemoMode) {
+                // Use the duplicateDemoReport function from the DemoContext
+                const demoReport = duplicateDemoReport(report.id);
+
+                if (demoReport) {
+                    // Create a new report list item data object
+                    const newListItemData: ReportListItemData = {
+                        id: demoReport._id,
+                        title: demoReport.title,
+                        status: 'Draft',
+                        createdAt: new Date(demoReport.createdAt),
+                        sentimentTags: demoReport.sentimentTags || [],
+                    };
+
+                    toast.success('Report duplicated successfully!', { id: toastId });
+                    logger.log('[ReportListItem] Demo report duplicated successfully.', { oldId: report.id, newId: demoReport._id });
+
+                    // Notify parent with the new report data
+                    onDuplicate(newListItemData);
+
+                    // Redirect to the new report in edit mode
+                    window.location.href = `/report/${demoReport._id}?edit=true`;
+                } else {
+                    throw new Error('Failed to duplicate report');
+                }
             } else {
-                 // Should not happen if success is true but newReport is missing
-                 throw new Error('Duplication succeeded but no new report data returned.');
+                // The server action now gets the user ID from the session
+                const result = await duplicateReport(report.id);
+                if (result.success && result.newReport) {
+                    toast.success('Report duplicated successfully!', { id: toastId });
+                    logger.log('[ReportListItem] Report duplicated successfully.', { oldId: report.id, newId: result.newReport._id });
+                    // Map the duplicated report (which might be a full ReportDocument)
+                    // to the ReportListItemData structure needed by the parent list
+                    const newListItemData: ReportListItemData = {
+                        id: result.newReport._id, // Use consistent 'id'
+                        title: result.newReport.title,
+                        status: 'Draft', // Assume draft status
+                        createdAt: new Date(result.newReport.createdAt),
+                        sentimentTags: [], // Assume no tags initially
+                    };
+                    onDuplicate(newListItemData); // Notify parent with the correct type
+                } else if (!result.success) { // Check if the operation failed before accessing error
+                    throw new Error(result.error || 'Failed to duplicate report.');
+                } else {
+                     // Should not happen if success is true but newReport is missing
+                     throw new Error('Duplication succeeded but no new report data returned.');
+                }
             }
         } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
@@ -185,11 +225,11 @@ const ReportListItem: React.FC<ReportListItemProps> = ({ report, onDelete, onDup
                  >
                     {isDuplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
                  </button>
-                 {/* Delete Button - Show if user owns the report OR if user is admin */}
+                 {/* Delete Button - Show if user owns the report OR if user is admin OR if in demo mode */}
                  {/* We need the report owner's ID here. Assuming ReportListItemData includes it or we fetch it */}
                  {/* For now, let's assume only admins can delete via dashboard for simplicity, or add owner check */}
                  {/* Example check if report object had ownerId: (user?.id === report.ownerId || isAdmin) */}
-                 {isAdmin && ( // Simplified: Only show delete to admin for now
+                 {(isAdmin || isDemoMode) && ( // Show delete button to admins or in demo mode
                      <button
                         onClick={() => setShowConfirmDelete(true)}
                         disabled={isDeleting}
